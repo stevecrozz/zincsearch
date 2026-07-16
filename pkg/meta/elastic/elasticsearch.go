@@ -36,7 +36,7 @@ func NewESInfo(c *gin.Context) *ESInfo {
 			version = matches[0]
 		}
 	}
-	if v := strings.ToUpper(config.Global.Plugin.ES.Version); v != "" {
+	if v := config.Global.Plugin.ES.Version; v != "" {
 		version = v
 	}
 	return &ESInfo{
@@ -50,8 +50,8 @@ func NewESInfo(c *gin.Context) *ESInfo {
 			BuildDate:                 meta.BuildDate,
 			BuildSnapshot:             false,
 			LuceneVersion:             "N/A",
-			MinimumWireVersion:        "N/A",
-			MinimumIndexCompatibility: "N/A",
+			MinimumWireCompatibilityVersion:  "7.17.0",
+			MinimumIndexCompatibilityVersion: "7.0.0",
 		},
 		Tagline: "You Know, for Search",
 	}
@@ -82,14 +82,14 @@ type ESInfo struct {
 }
 
 type ESInfoVersion struct {
-	Number                    string `json:"number"`
-	BuildFlavor               string `json:"build_flavor"`
-	BuildHash                 string `json:"build_hash"`
-	BuildDate                 string `json:"build_date"`
-	BuildSnapshot             bool   `json:"build_snapshot"`
-	LuceneVersion             string `json:"lucene_version"`
-	MinimumWireVersion        string `json:"minimum_wire_version"`
-	MinimumIndexCompatibility string `json:"minimum_index_compatibility"`
+	Number                           string `json:"number"`
+	BuildFlavor                      string `json:"build_flavor"`
+	BuildHash                        string `json:"build_hash"`
+	BuildDate                        string `json:"build_date"`
+	BuildSnapshot                    bool   `json:"build_snapshot"`
+	LuceneVersion                    string `json:"lucene_version"`
+	MinimumWireCompatibilityVersion  string `json:"minimum_wire_compatibility_version"`
+	MinimumIndexCompatibilityVersion string `json:"minimum_index_compatibility_version"`
 }
 
 type ESLicense struct {

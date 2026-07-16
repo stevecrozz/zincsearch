@@ -144,6 +144,7 @@ func SetRoutes(r *gin.Engine) {
 	r.HEAD("/es/", ESMiddleware, func(c *gin.Context) {
 		zutils.GinRenderJSON(c, http.StatusOK, elastic.NewESInfo(c))
 	})
+	r.GET("/es/_cluster/health", ESMiddleware, elastic.GetClusterHealth)
 	r.GET("/es/_license", ESMiddleware, func(c *gin.Context) {
 		zutils.GinRenderJSON(c, http.StatusOK, elastic.NewESLicense(c))
 	})
@@ -193,6 +194,7 @@ func SetRoutes(r *gin.Engine) {
 	r.POST("/es/:target/_refresh", AuthMiddleware("index.Refresh"), index.Refresh)
 	// ES Document
 	r.POST("/es/:target/_doc", AuthMiddleware("document.CreateUpdate"), ESMiddleware, document.CreateUpdate)        // create
+	r.POST("/es/:target/_doc/:id", AuthMiddleware("document.CreateUpdate"), ESMiddleware, document.CreateUpdate)    // create or update
 	r.PUT("/es/:target/_doc/:id", AuthMiddleware("document.CreateUpdate"), ESMiddleware, document.CreateUpdate)     // create or update
 	r.PUT("/es/:target/_create/:id", AuthMiddleware("document.CreateUpdate"), ESMiddleware, document.CreateUpdate)  // create
 	r.POST("/es/:target/_create/:id", AuthMiddleware("document.CreateUpdate"), ESMiddleware, document.CreateUpdate) // create
