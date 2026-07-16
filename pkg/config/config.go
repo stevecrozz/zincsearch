@@ -91,7 +91,8 @@ type plugin struct {
 }
 
 type elasticsearch struct {
-	Version string `env:"ZINC_PLUGIN_ES_VERSION"`
+	Version  string `env:"ZINC_PLUGIN_ES_VERSION"`
+	BasePath string `env:"ZINC_PLUGIN_ES_BASE_PATH"`
 }
 
 type gse struct {

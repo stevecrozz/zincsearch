@@ -138,67 +138,75 @@ func SetRoutes(r *gin.Engine) {
 	 * elastic compatible APIs
 	 */
 
-	r.GET("/es/", ESMiddleware, func(c *gin.Context) {
-		zutils.GinRenderJSON(c, http.StatusOK, elastic.NewESInfo(c))
-	})
-	r.HEAD("/es/", ESMiddleware, func(c *gin.Context) {
-		zutils.GinRenderJSON(c, http.StatusOK, elastic.NewESInfo(c))
-	})
-	r.GET("/es/_cluster/health", ESMiddleware, elastic.GetClusterHealth)
-	r.GET("/es/_license", ESMiddleware, func(c *gin.Context) {
+	setESRoutes(r, "/es")
+	if p := config.Global.Plugin.ES.BasePath; p != "" {
+		setESRoutes(r, strings.TrimRight(p, "/"))
+	}
+}
+
+func setESRoutes(r *gin.Engine, prefix string) {
+	if prefix != "" {
+		r.GET(prefix+"/", ESMiddleware, func(c *gin.Context) {
+			zutils.GinRenderJSON(c, http.StatusOK, elastic.NewESInfo(c))
+		})
+		r.HEAD(prefix+"/", ESMiddleware, func(c *gin.Context) {
+			zutils.GinRenderJSON(c, http.StatusOK, elastic.NewESInfo(c))
+		})
+	}
+	r.GET(prefix+"/_cluster/health", ESMiddleware, elastic.GetClusterHealth)
+	r.GET(prefix+"/_license", ESMiddleware, func(c *gin.Context) {
 		zutils.GinRenderJSON(c, http.StatusOK, elastic.NewESLicense(c))
 	})
-	r.GET("/es/_xpack", ESMiddleware, func(c *gin.Context) {
+	r.GET(prefix+"/_xpack", ESMiddleware, func(c *gin.Context) {
 		zutils.GinRenderJSON(c, http.StatusOK, elastic.NewESXPack(c))
 	})
 
-	r.POST("/es/_search", AuthMiddleware("search.SearchDSL"), ESMiddleware, IndexAliasMiddleware, search.SearchDSL)
-	r.POST("/es/_msearch", AuthMiddleware("search.MultipleSearch"), ESMiddleware, IndexAliasMiddleware, search.MultipleSearch)
-	r.POST("/es/:target/_search", AuthMiddleware("search.SearchDSL"), ESMiddleware, IndexAliasMiddleware, search.SearchDSL)
-	r.POST("/es/:target/_msearch", AuthMiddleware("search.MultipleSearch"), ESMiddleware, IndexAliasMiddleware, search.MultipleSearch)
-	r.POST("/es/:target/_delete_by_query", AuthMiddleware("search.DeleteByQuery"), IndexAliasMiddleware, search.DeleteByQuery)
+	r.POST(prefix+"/_search", AuthMiddleware("search.SearchDSL"), ESMiddleware, IndexAliasMiddleware, search.SearchDSL)
+	r.POST(prefix+"/_msearch", AuthMiddleware("search.MultipleSearch"), ESMiddleware, IndexAliasMiddleware, search.MultipleSearch)
+	r.POST(prefix+"/:target/_search", AuthMiddleware("search.SearchDSL"), ESMiddleware, IndexAliasMiddleware, search.SearchDSL)
+	r.POST(prefix+"/:target/_msearch", AuthMiddleware("search.MultipleSearch"), ESMiddleware, IndexAliasMiddleware, search.MultipleSearch)
+	r.POST(prefix+"/:target/_delete_by_query", AuthMiddleware("search.DeleteByQuery"), IndexAliasMiddleware, search.DeleteByQuery)
 
-	r.GET("/es/_index_template", AuthMiddleware("index.ListTemplate"), ESMiddleware, index.ListTemplate)
-	r.POST("/es/_index_template", AuthMiddleware("index.CreateTemplate"), ESMiddleware, index.CreateTemplate)
-	r.PUT("/es/_index_template/:target", AuthMiddleware("index.CreateTemplate"), ESMiddleware, index.CreateTemplate)
-	r.GET("/es/_index_template/:target", AuthMiddleware("index.GetTemplate"), ESMiddleware, index.GetTemplate)
-	r.HEAD("/es/_index_template/:target", AuthMiddleware("index.GetTemplate"), ESMiddleware, index.GetTemplate)
-	r.DELETE("/es/_index_template/:target", AuthMiddleware("index.DeleteTemplate"), ESMiddleware, index.DeleteTemplate)
-	// ES Compatible data stream
-	r.PUT("/es/_data_stream/:target", AuthMiddleware("elastic.PutDataStream"), ESMiddleware, elastic.PutDataStream)
-	r.GET("/es/_data_stream/:target", AuthMiddleware("elastic.GetDataStream"), ESMiddleware, elastic.GetDataStream)
-	r.HEAD("/es/_data_stream/:target", AuthMiddleware("elastic.GetDataStream"), ESMiddleware, elastic.GetDataStream)
+	r.GET(prefix+"/_index_template", AuthMiddleware("index.ListTemplate"), ESMiddleware, index.ListTemplate)
+	r.POST(prefix+"/_index_template", AuthMiddleware("index.CreateTemplate"), ESMiddleware, index.CreateTemplate)
+	r.PUT(prefix+"/_index_template/:target", AuthMiddleware("index.CreateTemplate"), ESMiddleware, index.CreateTemplate)
+	r.GET(prefix+"/_index_template/:target", AuthMiddleware("index.GetTemplate"), ESMiddleware, index.GetTemplate)
+	r.HEAD(prefix+"/_index_template/:target", AuthMiddleware("index.GetTemplate"), ESMiddleware, index.GetTemplate)
+	r.DELETE(prefix+"/_index_template/:target", AuthMiddleware("index.DeleteTemplate"), ESMiddleware, index.DeleteTemplate)
 
-	r.PUT("/es/:target", AuthMiddleware("index.CreateES"), ESMiddleware, index.CreateES)
-	r.HEAD("/es/:target", AuthMiddleware("index.Exists"), ESMiddleware, index.Exists)
+	r.PUT(prefix+"/_data_stream/:target", AuthMiddleware("elastic.PutDataStream"), ESMiddleware, elastic.PutDataStream)
+	r.GET(prefix+"/_data_stream/:target", AuthMiddleware("elastic.GetDataStream"), ESMiddleware, elastic.GetDataStream)
+	r.HEAD(prefix+"/_data_stream/:target", AuthMiddleware("elastic.GetDataStream"), ESMiddleware, elastic.GetDataStream)
 
-	r.GET("/es/:target/_mapping", AuthMiddleware("index.GetESMapping"), ESMiddleware, index.GetESMapping)
-	r.PUT("/es/:target/_mapping", AuthMiddleware("index.SetMapping"), ESMiddleware, index.SetMapping)
+	r.PUT(prefix+"/:target", AuthMiddleware("index.CreateES"), ESMiddleware, index.CreateES)
+	r.HEAD(prefix+"/:target", AuthMiddleware("index.Exists"), ESMiddleware, index.Exists)
 
-	r.GET("/es/:target/_settings", AuthMiddleware("index.GetSettings"), ESMiddleware, index.GetSettings)
-	r.PUT("/es/:target/_settings", AuthMiddleware("index.SetSettings"), ESMiddleware, index.SetSettings)
+	r.GET(prefix+"/:target/_mapping", AuthMiddleware("index.GetESMapping"), ESMiddleware, index.GetESMapping)
+	r.PUT(prefix+"/:target/_mapping", AuthMiddleware("index.SetMapping"), ESMiddleware, index.SetMapping)
 
-	r.POST("/es/_analyze", AuthMiddleware("index.Analyze"), ESMiddleware, index.Analyze)
-	r.POST("/es/:target/_analyze", AuthMiddleware("index.Analyze"), ESMiddleware, index.Analyze)
+	r.GET(prefix+"/:target/_settings", AuthMiddleware("index.GetSettings"), ESMiddleware, index.GetSettings)
+	r.PUT(prefix+"/:target/_settings", AuthMiddleware("index.SetSettings"), ESMiddleware, index.SetSettings)
 
-	r.POST("/es/_aliases", AuthMiddleware("index.AddOrRemoveESAlias"), ESMiddleware, index.AddOrRemoveESAlias)
+	r.POST(prefix+"/_analyze", AuthMiddleware("index.Analyze"), ESMiddleware, index.Analyze)
+	r.POST(prefix+"/:target/_analyze", AuthMiddleware("index.Analyze"), ESMiddleware, index.Analyze)
 
-	r.GET("/es/_alias", AuthMiddleware("index.GetESAliases"), ESMiddleware, index.GetESAliases)
-	r.GET("/es/:target/_alias", AuthMiddleware("index.GetESAliases"), ESMiddleware, index.GetESAliases)
-	r.GET("/es/_alias/:target_alias", AuthMiddleware("index.GetESAliases"), ESMiddleware, index.GetESAliases)
+	r.POST(prefix+"/_aliases", AuthMiddleware("index.AddOrRemoveESAlias"), ESMiddleware, index.AddOrRemoveESAlias)
 
-	// ES Bulk update/insert
-	r.POST("/es/_bulk", AuthMiddleware("document.ESBulk"), ESMiddleware, document.ESBulk)
-	r.POST("/es/:target/_bulk", AuthMiddleware("document.ESBulk"), ESMiddleware, document.ESBulk)
-	r.PUT("/es/:target/_bulk", AuthMiddleware("document.ESBulk"), ESMiddleware, document.ESBulk)
-	r.POST("/es/:target/_refresh", AuthMiddleware("index.Refresh"), index.Refresh)
-	// ES Document
-	r.POST("/es/:target/_doc", AuthMiddleware("document.CreateUpdate"), ESMiddleware, document.CreateUpdate)        // create
-	r.POST("/es/:target/_doc/:id", AuthMiddleware("document.CreateUpdate"), ESMiddleware, document.CreateUpdate)    // create or update
-	r.PUT("/es/:target/_doc/:id", AuthMiddleware("document.CreateUpdate"), ESMiddleware, document.CreateUpdate)     // create or update
-	r.PUT("/es/:target/_create/:id", AuthMiddleware("document.CreateUpdate"), ESMiddleware, document.CreateUpdate)  // create
-	r.POST("/es/:target/_create/:id", AuthMiddleware("document.CreateUpdate"), ESMiddleware, document.CreateUpdate) // create
-	r.POST("/es/:target/_update/:id", AuthMiddleware("document.Update"), ESMiddleware, document.Update)             // update part of document
-	r.DELETE("/es/:target/_doc/:id", AuthMiddleware("document.Delete"), ESMiddleware, document.Delete)              // delete
-	r.GET("/es/:target/_doc/:id", AuthMiddleware("document.Get"), ESMiddleware, document.Get)                       // get
+	r.GET(prefix+"/_alias", AuthMiddleware("index.GetESAliases"), ESMiddleware, index.GetESAliases)
+	r.GET(prefix+"/:target/_alias", AuthMiddleware("index.GetESAliases"), ESMiddleware, index.GetESAliases)
+	r.GET(prefix+"/_alias/:target_alias", AuthMiddleware("index.GetESAliases"), ESMiddleware, index.GetESAliases)
+
+	r.POST(prefix+"/_bulk", AuthMiddleware("document.ESBulk"), ESMiddleware, document.ESBulk)
+	r.POST(prefix+"/:target/_bulk", AuthMiddleware("document.ESBulk"), ESMiddleware, document.ESBulk)
+	r.PUT(prefix+"/:target/_bulk", AuthMiddleware("document.ESBulk"), ESMiddleware, document.ESBulk)
+	r.POST(prefix+"/:target/_refresh", AuthMiddleware("index.Refresh"), index.Refresh)
+
+	r.POST(prefix+"/:target/_doc", AuthMiddleware("document.CreateUpdate"), ESMiddleware, document.CreateUpdate)
+	r.POST(prefix+"/:target/_doc/:id", AuthMiddleware("document.CreateUpdate"), ESMiddleware, document.CreateUpdate)
+	r.PUT(prefix+"/:target/_doc/:id", AuthMiddleware("document.CreateUpdate"), ESMiddleware, document.CreateUpdate)
+	r.PUT(prefix+"/:target/_create/:id", AuthMiddleware("document.CreateUpdate"), ESMiddleware, document.CreateUpdate)
+	r.POST(prefix+"/:target/_create/:id", AuthMiddleware("document.CreateUpdate"), ESMiddleware, document.CreateUpdate)
+	r.POST(prefix+"/:target/_update/:id", AuthMiddleware("document.Update"), ESMiddleware, document.Update)
+	r.DELETE(prefix+"/:target/_doc/:id", AuthMiddleware("document.Delete"), ESMiddleware, document.Delete)
+	r.GET(prefix+"/:target/_doc/:id", AuthMiddleware("document.Get"), ESMiddleware, document.Get)
 }
