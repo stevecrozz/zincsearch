@@ -72,6 +72,22 @@ func TermsQuery(query map[string]interface{}, mappings *meta.Mappings) (bluge.Qu
 		}
 	}
 
+	// _id is always a string field; coerce numeric values
+	if field == "_id" {
+		for _, term := range valueFloat {
+			if term == float64(int64(term)) {
+				values = append(values, fmt.Sprintf("%d", int64(term)))
+			} else {
+				values = append(values, fmt.Sprintf("%v", term))
+			}
+		}
+		for _, term := range valueInts {
+			values = append(values, fmt.Sprintf("%d", term))
+		}
+		valueFloat = nil
+		valueInts = nil
+	}
+
 	subq := bluge.NewBooleanQuery()
 	for _, term := range values {
 		subqq, err := TermQueryText(field, &meta.TermQuery{Value: term})
