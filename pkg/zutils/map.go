@@ -15,7 +15,10 @@
 
 package zutils
 
-import "fmt"
+import (
+	"fmt"
+	"strconv"
+)
 
 func GetStringFromMap(m interface{}, key string) (string, error) {
 	v, err := GetAnyFromMap(m, key)
@@ -48,12 +51,18 @@ func GetFloatFromMap(m interface{}, key string) (float64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("GetFloatFromMap: key [%s] not found", key)
 	}
-	vs, ok := v.(float64)
-	if !ok {
+	switch val := v.(type) {
+	case float64:
+		return val, nil
+	case string:
+		f, err := strconv.ParseFloat(val, 64)
+		if err != nil {
+			return 0, fmt.Errorf("GetFloatFromMap: value [%s] cannot be converted to float64", key)
+		}
+		return f, nil
+	default:
 		return 0, fmt.Errorf("GetFloatFromMap: value [%s] should be a float64", key)
 	}
-
-	return vs, nil
 }
 
 func GetStringSliceFromMap(m interface{}, key string) ([]string, error) {
