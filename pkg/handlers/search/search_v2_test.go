@@ -99,6 +99,44 @@ func TestSearchDSL(t *testing.T) {
 	})
 }
 
+func TestSearchDSL_MultiIndexWithAliases(t *testing.T) {
+	idx1, err := core.NewIndex("multi-alias-search-v1", "disk", 2)
+	assert.NoError(t, err)
+	assert.NoError(t, core.StoreIndex(idx1))
+
+	idx2, err := core.NewIndex("multi-alias-search-v2", "disk", 2)
+	assert.NoError(t, err)
+	assert.NoError(t, core.StoreIndex(idx2))
+
+	assert.NoError(t, core.ZINC_INDEX_ALIAS_LIST.AddIndexesToAlias("alias-a", []string{"multi-alias-search-v1"}))
+	assert.NoError(t, core.ZINC_INDEX_ALIAS_LIST.AddIndexesToAlias("alias-b", []string{"multi-alias-search-v2"}))
+
+	t.Run("comma-separated aliases", func(t *testing.T) {
+		c, w := utils.NewGinContext()
+		utils.SetGinRequestData(c, `{"query":{"match_all":{}},"size":10}`)
+		utils.SetGinRequestParams(c, map[string]string{"target": "alias-a,alias-b"})
+		SearchDSL(c)
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Contains(t, w.Body.String(), "successful")
+	})
+
+	t.Run("single alias", func(t *testing.T) {
+		c, w := utils.NewGinContext()
+		utils.SetGinRequestData(c, `{"query":{"match_all":{}},"size":10}`)
+		utils.SetGinRequestParams(c, map[string]string{"target": "alias-a"})
+		SearchDSL(c)
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Contains(t, w.Body.String(), "successful")
+	})
+
+	t.Cleanup(func() {
+		_ = core.ZINC_INDEX_ALIAS_LIST.RemoveIndexesFromAlias("alias-a", []string{"multi-alias-search-v1"})
+		_ = core.ZINC_INDEX_ALIAS_LIST.RemoveIndexesFromAlias("alias-b", []string{"multi-alias-search-v2"})
+		_ = core.DeleteIndex("multi-alias-search-v1")
+		_ = core.DeleteIndex("multi-alias-search-v2")
+	})
+}
+
 func TestMultipleSearch(t *testing.T) {
 	indexName := "TestMultipleSearch.index_1"
 	type args struct {

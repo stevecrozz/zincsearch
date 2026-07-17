@@ -156,6 +156,17 @@ func MultipleSearch(c *gin.Context) {
 }
 
 func searchIndex(indexNames []string, query *meta.ZincQuery) (*meta.SearchResponse, error) {
+	// Resolve aliases to real index names
+	resolved := make([]string, 0, len(indexNames))
+	for _, name := range indexNames {
+		if aliases, ok := core.ZINC_INDEX_ALIAS_LIST.GetIndexesForAlias(name); ok && len(aliases) > 0 {
+			resolved = append(resolved, aliases...)
+		} else {
+			resolved = append(resolved, name)
+		}
+	}
+	indexNames = resolved
+
 	indexName := ""
 	if len(indexNames) > 0 {
 		indexName = indexNames[0]
@@ -166,11 +177,6 @@ func searchIndex(indexNames []string, query *meta.ZincQuery) (*meta.SearchRespon
 		resp, err = core.MultiSearch(indexNames, query)
 	} else {
 		index, exists := core.GetIndex(indexName)
-		if !exists {
-			if aliases, ok := core.ZINC_INDEX_ALIAS_LIST.GetIndexesForAlias(indexName); ok && len(aliases) > 0 {
-				index, exists = core.GetIndex(aliases[0])
-			}
-		}
 		if !exists {
 			return nil, fmt.Errorf("index %s does not exists", indexName)
 		}
