@@ -58,6 +58,7 @@ type config struct {
 	WalSyncInterval           time.Duration `env:"ZINC_WAL_SYNC_INTERVAL,default=1s"`      // sync wal to disk, 1s, 10ms
 	WalRedoLogNoSync          bool          `env:"ZINC_WAL_REDOLOG_NO_SYNC,default=false"` // control sync after every write
 	ZincSwaggerEnable         bool          `env:"ZINC_SWAGGER_ENABLE,default=true"`
+	NoAuth                    bool          `env:"ZINC_NO_AUTH,default=false"`
 	LogLevel                  string        `env:"ZINC_LOG_LEVEL,default=debug"`
 	Cluster                   cluster
 	Shard                     shard

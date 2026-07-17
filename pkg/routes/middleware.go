@@ -22,13 +22,17 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/zincsearch/zincsearch/pkg/auth"
+	"github.com/zincsearch/zincsearch/pkg/config"
 	"github.com/zincsearch/zincsearch/pkg/core"
 )
 
 func AuthMiddleware(permission string) func(c *gin.Context) {
 	auth.AddPermission(permission)
 	return func(c *gin.Context) {
-		// Get the Basic Authentication credentials
+		if config.Global.NoAuth {
+			c.Next()
+			return
+		}
 		user, password, hasAuth := c.Request.BasicAuth()
 		if hasAuth {
 			if u, ok := auth.VerifyCredentials(user, password); ok {

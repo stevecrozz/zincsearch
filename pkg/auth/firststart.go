@@ -20,6 +20,8 @@ import (
 	"os"
 
 	"github.com/rs/zerolog/log"
+
+	"github.com/zincsearch/zincsearch/pkg/config"
 )
 
 func init() {
@@ -28,7 +30,7 @@ func init() {
 	if err != nil {
 		log.Print(err)
 	}
-	if firstStart {
+	if firstStart && !config.Global.NoAuth {
 		if err := initFirstUser(); err != nil {
 			log.Fatal().Err(err).Msg("init first user")
 		}
