@@ -22,5 +22,9 @@ import (
 )
 
 func ExistsQuery(query map[string]interface{}) (bluge.Query, error) {
-	return nil, errors.New(errors.ErrorTypeNotImplemented, "[exists] query doesn't support")
+	field, ok := query["field"].(string)
+	if !ok || field == "" {
+		return nil, errors.New(errors.ErrorTypeParsingException, "[exists] field is required")
+	}
+	return bluge.NewWildcardQuery("*").SetField(field), nil
 }
