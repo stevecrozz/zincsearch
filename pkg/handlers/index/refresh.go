@@ -35,19 +35,29 @@ import (
 // @Router /api/index/{index}/refresh [post]
 func Refresh(c *gin.Context) {
 	indexName := c.Param("target")
-	index, exists := core.GetIndex(indexName)
-	if !exists {
-		if indexes, ok := core.ZINC_INDEX_ALIAS_LIST.GetIndexesForAlias(indexName); ok && len(indexes) > 0 {
-			index, exists = core.GetIndex(indexes[0])
-		}
+
+	var indexNames []string
+	if _, exists := core.GetIndex(indexName); exists {
+		indexNames = []string{indexName}
+	} else if aliases, ok := core.ZINC_INDEX_ALIAS_LIST.GetIndexesForAlias(indexName); ok && len(aliases) > 0 {
+		indexNames = aliases
 	}
-	if !exists {
+
+	if len(indexNames) == 0 {
 		c.JSON(http.StatusBadRequest, meta.HTTPResponseError{Error: "index " + indexName + " does not exists"})
 		return
 	}
-	if err := index.Reopen(); err != nil {
-		c.JSON(http.StatusBadRequest, meta.HTTPResponseError{Error: err.Error()})
-		return
+
+	for _, name := range indexNames {
+		idx, exists := core.GetIndex(name)
+		if !exists {
+			continue
+		}
+		if err := idx.Reopen(); err != nil {
+			c.JSON(http.StatusBadRequest, meta.HTTPResponseError{Error: err.Error()})
+			return
+		}
 	}
+
 	c.JSON(http.StatusOK, meta.HTTPResponse{Message: "ok"})
 }

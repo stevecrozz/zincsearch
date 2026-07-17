@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/zincsearch/zincsearch/pkg/core"
 	"github.com/zincsearch/zincsearch/pkg/zutils/json"
@@ -79,4 +80,37 @@ func TestRefresh(t *testing.T) {
 			assert.NoError(t, err)
 		})
 	}
+
+	t.Run("refresh via alias with single index", func(t *testing.T) {
+		require.NoError(t, core.ZINC_INDEX_ALIAS_LIST.AddIndexesToAlias("TestRefresh.alias_1", []string{"TestRefresh.index_1"}))
+
+		c, w := utils.NewGinContext()
+		utils.SetGinRequestParams(c, map[string]string{"target": "TestRefresh.alias_1"})
+		Refresh(c)
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Contains(t, w.Body.String(), "ok")
+
+		_ = core.ZINC_INDEX_ALIAS_LIST.RemoveIndexesFromAlias("TestRefresh.alias_1", []string{"TestRefresh.index_1"})
+	})
+
+	t.Run("refresh via alias with multiple indexes", func(t *testing.T) {
+		idx2, err := core.NewIndex("TestRefresh.index_2", "disk", 2)
+		require.NoError(t, err)
+		require.NoError(t, core.StoreIndex(idx2))
+
+		require.NoError(t, core.ZINC_INDEX_ALIAS_LIST.AddIndexesToAlias("TestRefresh.alias_multi", []string{"TestRefresh.index_1", "TestRefresh.index_2"}))
+
+		c, w := utils.NewGinContext()
+		utils.SetGinRequestParams(c, map[string]string{"target": "TestRefresh.alias_multi"})
+		Refresh(c)
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Contains(t, w.Body.String(), "ok")
+
+		_ = core.ZINC_INDEX_ALIAS_LIST.RemoveIndexesFromAlias("TestRefresh.alias_multi", []string{"TestRefresh.index_1", "TestRefresh.index_2"})
+		_ = core.DeleteIndex("TestRefresh.index_2")
+	})
+
+	t.Run("cleanup", func(t *testing.T) {
+		_ = core.DeleteIndex("TestRefresh.index_1")
+	})
 }
