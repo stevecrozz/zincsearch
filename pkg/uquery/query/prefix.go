@@ -55,6 +55,12 @@ func PrefixQuery(query map[string]interface{}) (bluge.Query, error) {
 		}
 	}
 
+	// _index is a meta-field not stored in bluge; prefix on _index is used
+	// for multi-index scoping which is already handled by index routing
+	if field == "_index" {
+		return bluge.NewMatchAllQuery(), nil
+	}
+
 	subq := bluge.NewPrefixQuery(value.Value).SetField(field)
 	if value.Boost >= 0 {
 		subq.SetBoost(value.Boost)
