@@ -70,6 +70,44 @@ func TestRequestTokenizerSingle_SimplePatternSplit(t *testing.T) {
 	}
 }
 
+func TestRequestTokenizerSingle_UaxUrlEmail(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  []string
+	}{
+		{
+			name:  "preserves email as single token",
+			input: "contact user@example.com today",
+			want:  []string{"contact", "user@example.com", "today"},
+		},
+		{
+			name:  "preserves URL as single token",
+			input: "visit http://example.com/path now",
+			want:  []string{"visit", "http://example.com/path", "now"},
+		},
+		{
+			name:  "plain text tokenizes normally",
+			input: "hello world",
+			want:  []string{"hello", "world"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tok, err := RequestTokenizerSingle("uax_url_email", nil)
+			assert.NoError(t, err)
+
+			tokens := tok.Tokenize([]byte(tt.input))
+			got := make([]string, 0, len(tokens))
+			for _, token := range tokens {
+				got = append(got, string(token.Term))
+			}
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestRequestTokenizer_SimplePatternSplit(t *testing.T) {
 	data := map[string]interface{}{
 		"my_splitter": map[string]interface{}{

@@ -97,7 +97,7 @@ func RequestTokenizerSingle(name string, options interface{}) (analysis.Tokenize
 		return tokenizer.NewSingleTokenTokenizer(), nil
 	case "unicode", "standard":
 		return tokenizer.NewUnicodeTokenizer(), nil
-	case "web":
+	case "web", "uax_url_email":
 		return tokenizer.NewWebTokenizer(), nil
 	case "whitespace":
 		return tokenizer.NewWhitespaceTokenizer(), nil

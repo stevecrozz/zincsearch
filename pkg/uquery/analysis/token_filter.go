@@ -109,6 +109,8 @@ func RequestTokenFilterSingle(name string, options interface{}) (analysis.TokenF
 		return token.NewApostropheFilter(), nil
 	case "camel_case", "camelcase":
 		return token.NewCamelCaseFilter(), nil
+	case "common_grams":
+		return zinctoken.NewCommonGramsTokenFilter(options)
 	case "dict":
 		return zinctoken.NewDictTokenFilter(options)
 	case "edge_ngram":
