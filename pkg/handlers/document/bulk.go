@@ -164,9 +164,18 @@ func BulkWorker(target string, body io.Reader) (*BulkResponse, error) {
 			default:
 			}
 
+			if indexes, ok := core.ZINC_INDEX_ALIAS_LIST.GetIndexesForAlias(indexName); ok && len(indexes) > 0 {
+				indexName = indexes[0]
+			}
 			newIndex, _, err := core.GetOrCreateIndex(indexName, "", 0)
 			if err != nil {
 				return bulkRes, err
+			}
+
+			if operation == "update" {
+				if innerDoc, ok := doc["doc"].(map[string]interface{}); ok {
+					doc = innerDoc
+				}
 			}
 
 			err = newIndex.CreateDocument(docID, doc, update)
