@@ -74,15 +74,15 @@ func SetMapping(c *gin.Context) {
 		return
 	}
 
-	mappings, err := mappings.Request(nil, mappingRequest)
-	if err != nil {
-		zutils.GinRenderJSON(c, http.StatusBadRequest, meta.HTTPResponseError{Error: err.Error()})
-		return
-	}
-
 	index, exists, err := core.GetOrCreateIndex(indexName, "", 0)
 	if err != nil {
 		zutils.GinRenderJSON(c, http.StatusInternalServerError, meta.HTTPResponseError{Error: err.Error()})
+		return
+	}
+
+	mappings, err := mappings.Request(index.GetAnalyzers(), mappingRequest)
+	if err != nil {
+		zutils.GinRenderJSON(c, http.StatusBadRequest, meta.HTTPResponseError{Error: err.Error()})
 		return
 	}
 

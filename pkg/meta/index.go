@@ -15,6 +15,8 @@
 
 package meta
 
+import "github.com/zincsearch/zincsearch/pkg/zutils/json"
+
 type Index struct {
 	ShardNum    int64                  `json:"shard_num"`
 	Name        string                 `json:"name"`
@@ -59,6 +61,24 @@ type IndexSettings struct {
 	NumberOfShards   int64          `json:"number_of_shards,omitempty"`
 	NumberOfReplicas int64          `json:"number_of_replicas,omitempty"`
 	Analysis         *IndexAnalysis `json:"analysis,omitempty"`
+}
+
+// UnmarshalJSON handles the ES-compatible format where settings may be wrapped
+// under an "index" key: {"index": {"analysis": {...}}} or {"analysis": {...}}
+func (s *IndexSettings) UnmarshalJSON(data []byte) error {
+	type plain IndexSettings
+	if err := json.Unmarshal(data, (*plain)(s)); err != nil {
+		return err
+	}
+	if s.Analysis == nil && s.NumberOfShards == 0 && s.NumberOfReplicas == 0 {
+		var wrapper struct {
+			Index *plain `json:"index,omitempty"`
+		}
+		if err := json.Unmarshal(data, &wrapper); err == nil && wrapper.Index != nil {
+			*s = IndexSettings(*wrapper.Index)
+		}
+	}
+	return nil
 }
 
 type IndexAnalysis struct {
