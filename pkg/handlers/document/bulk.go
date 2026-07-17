@@ -18,6 +18,7 @@ package document
 import (
 	"bufio"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"sync/atomic"
@@ -125,7 +126,12 @@ func BulkWorker(target string, body io.Reader) (*BulkResponse, error) {
 
 			docID := ""
 			if val, ok := lastLineMetaData["_id"]; ok && val != nil {
-				docID = val.(string)
+				switch v := val.(type) {
+				case string:
+					docID = v
+				default:
+					docID = fmt.Sprintf("%v", v)
+				}
 			}
 			if docID == "" {
 				docID = ider.Generate()
