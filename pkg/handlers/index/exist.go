@@ -23,6 +23,9 @@ func Exists(c *gin.Context) {
 
 	_, exists := core.GetIndex(indexName)
 	if !exists {
+		_, exists = core.ZINC_INDEX_ALIAS_LIST.GetIndexesForAlias(indexName)
+	}
+	if !exists {
 		c.Status(http.StatusNotFound)
 		return
 	}

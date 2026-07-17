@@ -68,6 +68,33 @@ func Delete(c *gin.Context) {
 	})
 }
 
+func DeleteES(c *gin.Context) {
+	indexNames := c.Param("target")
+	if indexNames == "" {
+		c.JSON(http.StatusBadRequest, meta.HTTPResponseError{Error: "index name cannot be empty"})
+		return
+	}
+
+	indexList := core.ZINC_INDEX_LIST.List()
+
+	for _, indexName := range strings.Split(indexNames, ",") {
+		if strings.Contains(indexName, "*") {
+			err := deleteIndexWithWildcard(indexName, indexList)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, meta.HTTPResponseError{Error: err.Error()})
+				return
+			}
+			continue
+		}
+		if err := core.DeleteIndex(indexName); err != nil {
+			c.JSON(http.StatusBadRequest, meta.HTTPResponseError{Error: err.Error()})
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"acknowledged": true})
+}
+
 func deleteIndexWithWildcard(indexName string, indexList []*core.Index) error {
 	parts := strings.Split(indexName, "*")
 	pattern := ""

@@ -155,6 +155,8 @@ func setESRoutes(r *gin.Engine, prefix string) {
 	}
 	r.GET(prefix+"/_cluster/health", ESMiddleware, elastic.GetClusterHealth)
 	r.GET(prefix+"/_cluster/health/:target", ESMiddleware, elastic.GetClusterHealth)
+	r.GET(prefix+"/_cat/indices", ESMiddleware, index.CatIndices)
+	r.GET(prefix+"/_cat/indices/:target", ESMiddleware, index.CatIndices)
 	r.GET(prefix+"/_license", ESMiddleware, func(c *gin.Context) {
 		zutils.GinRenderJSON(c, http.StatusOK, elastic.NewESLicense(c))
 	})
@@ -213,6 +215,7 @@ func setESRoutes(r *gin.Engine, prefix string) {
 	r.PUT(prefix+"/:target/_create/:id", AuthMiddleware("document.CreateUpdate"), ESMiddleware, document.CreateUpdate)
 	r.POST(prefix+"/:target/_create/:id", AuthMiddleware("document.CreateUpdate"), ESMiddleware, document.CreateUpdate)
 	r.POST(prefix+"/:target/_update/:id", AuthMiddleware("document.Update"), ESMiddleware, document.Update)
+	r.DELETE(prefix+"/:target", AuthMiddleware("index.Delete"), ESMiddleware, index.DeleteES)
 	r.DELETE(prefix+"/:target/_doc/:id", AuthMiddleware("document.Delete"), ESMiddleware, document.Delete)
 	r.GET(prefix+"/:target/_doc/:id", AuthMiddleware("document.Get"), ESMiddleware, document.Get)
 }
