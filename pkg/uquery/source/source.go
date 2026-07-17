@@ -35,6 +35,8 @@ func Request(v interface{}) (*meta.Source, error) {
 	switch v := v.(type) {
 	case bool:
 		source.Enable = v
+	case string:
+		source.Fields = []string{v}
 	case []interface{}:
 		source.Fields = make([]string, 0, len(v))
 		for _, field := range v {
@@ -42,6 +44,26 @@ func Request(v interface{}) (*meta.Source, error) {
 				source.Fields = append(source.Fields, v)
 			} else {
 				return nil, errors.New(errors.ErrorTypeXContentParseException, "[_source] value should be boolean or []string")
+			}
+		}
+	case map[string]interface{}:
+		if includes, ok := v["includes"]; ok {
+			if fields, ok := includes.([]interface{}); ok {
+				source.Fields = make([]string, 0, len(fields))
+				for _, field := range fields {
+					if s, ok := field.(string); ok {
+						source.Fields = append(source.Fields, s)
+					}
+				}
+			}
+		} else if include, ok := v["include"]; ok {
+			if fields, ok := include.([]interface{}); ok {
+				source.Fields = make([]string, 0, len(fields))
+				for _, field := range fields {
+					if s, ok := field.(string); ok {
+						source.Fields = append(source.Fields, s)
+					}
+				}
 			}
 		}
 	default:
