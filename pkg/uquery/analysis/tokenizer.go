@@ -91,6 +91,8 @@ func RequestTokenizerSingle(name string, options interface{}) (analysis.Tokenize
 		return zinctokenizer.NewPathHierarchyTokenizer(options)
 	case "regexp", "pattern":
 		return zinctokenizer.NewRegexpTokenizer(options)
+	case "simple_pattern_split":
+		return zinctokenizer.NewSimplePatternSplitTokenizer(options)
 	case "single", "keyword":
 		return tokenizer.NewSingleTokenTokenizer(), nil
 	case "unicode", "standard":
