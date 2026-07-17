@@ -107,6 +107,8 @@ func RequestTokenFilterSingle(name string, options interface{}) (analysis.TokenF
 	switch name {
 	case "apostrophe":
 		return token.NewApostropheFilter(), nil
+	case "asciifolding", "ascii_folding":
+		return zinctoken.NewASCIIFoldingTokenFilter()
 	case "camel_case", "camelcase":
 		return token.NewCamelCaseFilter(), nil
 	case "common_grams":

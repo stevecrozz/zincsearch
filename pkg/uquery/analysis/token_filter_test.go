@@ -22,6 +22,23 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestRequestTokenFilterSingle_ASCIIFolding(t *testing.T) {
+	f, err := RequestTokenFilterSingle("asciifolding", nil)
+	assert.NoError(t, err)
+
+	input := analysis.TokenStream{
+		{Term: []byte("café"), Start: 0, End: 5, PositionIncr: 1, Type: analysis.AlphaNumeric},
+		{Term: []byte("naïve"), Start: 6, End: 12, PositionIncr: 1, Type: analysis.AlphaNumeric},
+	}
+
+	got := f.Filter(input)
+	terms := make([]string, 0, len(got))
+	for _, token := range got {
+		terms = append(terms, string(token.Term))
+	}
+	assert.Equal(t, []string{"cafe", "naive"}, terms)
+}
+
 func TestRequestTokenFilterSingle_CommonGrams(t *testing.T) {
 	options := map[string]interface{}{
 		"type":         "common_grams",

@@ -15,7 +15,11 @@
 
 package meta
 
-import "github.com/zincsearch/zincsearch/pkg/zutils/json"
+import (
+	stdjson "encoding/json"
+
+	"github.com/zincsearch/zincsearch/pkg/zutils/json"
+)
 
 type Index struct {
 	ShardNum    int64                  `json:"shard_num"`
@@ -63,22 +67,55 @@ type IndexSettings struct {
 	Analysis         *IndexAnalysis `json:"analysis,omitempty"`
 }
 
-// UnmarshalJSON handles the ES-compatible format where settings may be wrapped
-// under an "index" key: {"index": {"analysis": {...}}} or {"analysis": {...}}
+// UnmarshalJSON handles ES-compatible formats:
+// - Flat: {"number_of_shards": 1, "analysis": {...}}
+// - Nested: {"index": {"number_of_shards": 1, "analysis": {...}}}
+// - String numbers: {"number_of_shards": "1"} (ES accepts both string and int)
 func (s *IndexSettings) UnmarshalJSON(data []byte) error {
-	type plain IndexSettings
-	if err := json.Unmarshal(data, (*plain)(s)); err != nil {
+	var raw struct {
+		NumberOfShards   interface{}    `json:"number_of_shards,omitempty"`
+		NumberOfReplicas interface{}    `json:"number_of_replicas,omitempty"`
+		Analysis         *IndexAnalysis `json:"analysis,omitempty"`
+		Index            *stdjson.RawMessage `json:"index,omitempty"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
-	if s.Analysis == nil && s.NumberOfShards == 0 && s.NumberOfReplicas == 0 {
-		var wrapper struct {
-			Index *plain `json:"index,omitempty"`
+
+	if raw.Index != nil {
+		var nested struct {
+			NumberOfShards   interface{}    `json:"number_of_shards,omitempty"`
+			NumberOfReplicas interface{}    `json:"number_of_replicas,omitempty"`
+			Analysis         *IndexAnalysis `json:"analysis,omitempty"`
 		}
-		if err := json.Unmarshal(data, &wrapper); err == nil && wrapper.Index != nil {
-			*s = IndexSettings(*wrapper.Index)
+		if err := json.Unmarshal(*raw.Index, &nested); err == nil {
+			raw.NumberOfShards = nested.NumberOfShards
+			raw.NumberOfReplicas = nested.NumberOfReplicas
+			raw.Analysis = nested.Analysis
 		}
 	}
+
+	s.NumberOfShards = toInt64(raw.NumberOfShards)
+	s.NumberOfReplicas = toInt64(raw.NumberOfReplicas)
+	s.Analysis = raw.Analysis
 	return nil
+}
+
+func toInt64(v interface{}) int64 {
+	switch v := v.(type) {
+	case float64:
+		return int64(v)
+	case string:
+		var n int64
+		for _, c := range v {
+			if c >= '0' && c <= '9' {
+				n = n*10 + int64(c-'0')
+			}
+		}
+		return n
+	default:
+		return 0
+	}
 }
 
 type IndexAnalysis struct {

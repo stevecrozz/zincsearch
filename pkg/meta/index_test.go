@@ -31,14 +31,26 @@ func TestIndexSettings_UnmarshalJSON(t *testing.T) {
 		wantShards   int64
 	}{
 		{
-			name:         "flat format",
+			name:         "flat format with int shards",
 			input:        `{"number_of_shards": 3, "analysis": {"analyzer": {"my_analyzer": {"type": "custom", "tokenizer": "standard"}}}}`,
 			wantAnalysis: true,
 			wantShards:   3,
 		},
 		{
-			name:         "nested under index key",
+			name:         "flat format with string shards",
+			input:        `{"number_of_shards": "3", "analysis": {"analyzer": {"my_analyzer": {"type": "custom", "tokenizer": "standard"}}}}`,
+			wantAnalysis: true,
+			wantShards:   3,
+		},
+		{
+			name:         "nested under index key with int shards",
 			input:        `{"index": {"number_of_shards": 5, "analysis": {"analyzer": {"my_analyzer": {"type": "custom", "tokenizer": "standard"}}}}}`,
+			wantAnalysis: true,
+			wantShards:   5,
+		},
+		{
+			name:         "nested under index key with string shards",
+			input:        `{"index": {"number_of_shards": "5", "number_of_replicas": "0", "analysis": {"analyzer": {"my_analyzer": {"type": "custom", "tokenizer": "standard"}}}}}`,
 			wantAnalysis: true,
 			wantShards:   5,
 		},
