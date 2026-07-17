@@ -180,7 +180,8 @@ func BulkWorker(target string, body io.Reader) (*BulkResponse, error) {
 
 			err = newIndex.CreateDocument(docID, doc, update)
 			if err != nil {
-				return bulkRes, err
+				bulkRes.Errors = true
+				log.Error().Msgf("bulk.CreateDocument: index=%s id=%s err=%s", indexName, docID, err.Error())
 			}
 
 		} else { // This branch will process the metadata line in the request. Each metadata line is preceded by a data line.

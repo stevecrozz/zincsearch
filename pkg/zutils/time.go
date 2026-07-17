@@ -167,7 +167,7 @@ func parseStringTime(vStr, format, timeZone string) (time.Time, error) {
 
 	timFormat := time.RFC3339
 	if format != "" {
-		timFormat = format
+		timFormat = esFormatToGoLayout(format)
 	}
 
 	t, err := time.ParseInLocation(timFormat, vStr, loc)
@@ -175,6 +175,37 @@ func parseStringTime(vStr, format, timeZone string) (time.Time, error) {
 		return time.Time{}, fmt.Errorf("time format [%s] value [%s] parse error: %w", timFormat, vStr, err)
 	}
 	return t, nil
+}
+
+// esFormatToGoLayout converts ES date format names to Go time layout strings.
+// If the format is already a Go layout or unrecognized, it's returned as-is.
+func esFormatToGoLayout(format string) string {
+	switch format {
+	case "date_time_no_millis", "strict_date_time_no_millis":
+		return "2006-01-02T15:04:05Z07:00"
+	case "date_time", "strict_date_time":
+		return "2006-01-02T15:04:05.000Z07:00"
+	case "date_optional_time", "strict_date_optional_time":
+		return time.RFC3339
+	case "basic_date":
+		return "20060102"
+	case "basic_date_time":
+		return "20060102T150405.000Z07:00"
+	case "basic_date_time_no_millis":
+		return "20060102T150405Z07:00"
+	case "date", "strict_date":
+		return "2006-01-02"
+	case "date_hour", "strict_date_hour":
+		return "2006-01-02T15"
+	case "date_hour_minute", "strict_date_hour_minute":
+		return "2006-01-02T15:04"
+	case "date_hour_minute_second", "strict_date_hour_minute_second":
+		return "2006-01-02T15:04:05"
+	case "epoch_second":
+		return "epoch_second"
+	default:
+		return format
+	}
 }
 
 func parseTimeZone(timeZone string) (*time.Location, error) {

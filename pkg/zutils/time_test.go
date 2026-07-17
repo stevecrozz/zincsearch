@@ -210,6 +210,57 @@ func TestUnix(t *testing.T) {
 	}
 }
 
+func TestEsFormatToGoLayout(t *testing.T) {
+	tests := []struct {
+		name   string
+		format string
+		want   string
+	}{
+		{"date_time_no_millis", "date_time_no_millis", "2006-01-02T15:04:05Z07:00"},
+		{"strict_date_time_no_millis", "strict_date_time_no_millis", "2006-01-02T15:04:05Z07:00"},
+		{"date_time", "date_time", "2006-01-02T15:04:05.000Z07:00"},
+		{"date", "date", "2006-01-02"},
+		{"basic_date", "basic_date", "20060102"},
+		{"passthrough Go layout", "2006-01-02", "2006-01-02"},
+		{"passthrough unknown", "yyyy-MM-dd", "yyyy-MM-dd"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := esFormatToGoLayout(tt.format)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestParseTime_ESFormats(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   string
+		format  string
+		wantErr bool
+	}{
+		{"date_time_no_millis with Z", "2026-07-17T10:00:00Z", "date_time_no_millis", false},
+		{"date_time_no_millis with +00:00", "2026-07-17T10:00:00+00:00", "date_time_no_millis", false},
+		{"date_time_no_millis with -07:00", "2026-07-17T10:00:00-07:00", "date_time_no_millis", false},
+		{"strict_date_time_no_millis with Z", "2026-07-17T10:00:00Z", "strict_date_time_no_millis", false},
+		{"date format", "2026-07-17", "date", false},
+		{"invalid value", "not-a-date", "date_time_no_millis", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ParseTime(tt.value, tt.format, "")
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.False(t, result.IsZero())
+			}
+		})
+	}
+}
+
 func TestParseTime(t *testing.T) {
 	nowStr := time.Now().Format(time.RFC3339)
 	now, _ := time.Parse(time.RFC3339, nowStr)
