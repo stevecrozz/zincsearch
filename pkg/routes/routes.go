@@ -191,7 +191,7 @@ func setESRoutes(r *gin.Engine, prefix string) {
 	r.PUT(prefix+"/:target/_settings", AuthMiddleware("index.SetSettings"), ESMiddleware, index.SetSettings)
 
 	r.POST(prefix+"/_analyze", AuthMiddleware("index.Analyze"), ESMiddleware, index.Analyze)
-	r.POST(prefix+"/:target/_analyze", AuthMiddleware("index.Analyze"), ESMiddleware, index.Analyze)
+	r.POST(prefix+"/:target/_analyze", AuthMiddleware("index.Analyze"), ESMiddleware, IndexAliasMiddleware, index.Analyze)
 
 	r.POST(prefix+"/_aliases", AuthMiddleware("index.AddOrRemoveESAlias"), ESMiddleware, index.AddOrRemoveESAlias)
 
