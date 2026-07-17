@@ -82,13 +82,13 @@ func AddOrRemoveESAlias(c *gin.Context) {
 
 		if action.Remove != nil {
 			if action.Remove.Index != "" {
-				matchAndAddToMap(indexList, action.Remove.Index, removeMap, action.Remove)
+				matchAndAddToRemoveMap(indexList, action.Remove.Index, removeMap, action.Remove)
 				continue
 			}
 
 			// index is empty, try the indices field
 			for _, indexName := range action.Remove.Indices {
-				matchAndAddToMap(indexList, indexName, removeMap, action.Remove)
+				matchAndAddToRemoveMap(indexList, indexName, removeMap, action.Remove)
 			}
 		}
 	}
@@ -168,6 +168,32 @@ func getRegex(s string) (*regexp.Regexp, error) {
 	}
 
 	return p, nil
+}
+
+func matchAndAddToRemoveMap(indexList []*core.Index, indexName string, m map[string][]string, b *base) {
+	if !strings.Contains(indexName, "*") {
+		if b.Alias != "" {
+			m[b.Alias] = append(m[b.Alias], indexName)
+		} else {
+			for _, a := range b.Aliases {
+				m[a] = append(m[a], indexName)
+			}
+		}
+		return
+	}
+
+	for _, index := range indexList {
+		n := index.GetName()
+		if indexNameMatches(indexName, n) {
+			if b.Alias != "" {
+				m[b.Alias] = append(m[b.Alias], n)
+			} else {
+				for _, a := range b.Aliases {
+					m[a] = append(m[a], n)
+				}
+			}
+		}
+	}
 }
 
 func matchAndAddToMap(indexList []*core.Index, indexName string, m map[string][]string, b *base) {
