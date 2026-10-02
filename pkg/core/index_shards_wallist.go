@@ -16,7 +16,6 @@
 package core
 
 import (
-	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -123,8 +122,5 @@ func (t *IndexShardWALList) ConsumeWAL() {
 
 			delete(indexes, name)
 		}
-
-		// force gc
-		runtime.GC()
 	}
 }
