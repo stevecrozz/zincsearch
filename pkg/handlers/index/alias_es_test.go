@@ -286,3 +286,61 @@ func newIndex(t *testing.T, indexName string) (*core.Index, func()) {
 		require.NoError(t, core.DeleteIndex(indexName))
 	}
 }
+
+func TestPutESAlias(t *testing.T) {
+	indexName := "TestPutESAlias.index_1"
+
+	t.Run("should_add_alias_to_index", func(t *testing.T) {
+		_, closeFn := newIndex(t, indexName)
+		defer closeFn()
+
+		c, w := utils.NewGinContext()
+		utils.SetGinRequestParams(c, map[string]string{"target": indexName, "target_alias": "put_alias_1,put_alias_2"})
+		PutESAlias(c)
+
+		require.Equal(t, http.StatusOK, w.Code)
+		require.Equal(t, `{"acknowledged":true}`, w.Body.String())
+		require.ElementsMatch(t, []string{"put_alias_1", "put_alias_2"}, core.ZINC_INDEX_ALIAS_LIST.GetAliasesForIndex(indexName))
+	})
+
+	t.Run("should_add_alias_to_wildcard_index", func(t *testing.T) {
+		_, closeFn := newIndex(t, indexName)
+		defer closeFn()
+
+		c, w := utils.NewGinContext()
+		utils.SetGinRequestParams(c, map[string]string{"target": "TestPutESAlias.*", "target_alias": "put_alias_1"})
+		PutESAlias(c)
+
+		require.Equal(t, http.StatusOK, w.Code)
+		require.Equal(t, []string{"put_alias_1"}, core.ZINC_INDEX_ALIAS_LIST.GetAliasesForIndex(indexName))
+	})
+
+	t.Run("should_404_for_missing_index", func(t *testing.T) {
+		_, closeFn := newIndex(t, indexName)
+		defer closeFn()
+
+		c, w := utils.NewGinContext()
+		utils.SetGinRequestParams(c, map[string]string{"target": "TestPutESAlias.missing", "target_alias": "put_alias_1"})
+		PutESAlias(c)
+
+		require.Equal(t, http.StatusNotFound, w.Code)
+		_, ok := core.ZINC_INDEX_ALIAS_LIST.GetIndexesForAlias("put_alias_1")
+		require.False(t, ok)
+	})
+}
+
+func TestDeleteESAlias(t *testing.T) {
+	indexName := "TestDeleteESAlias.index_1"
+	_, closeFn := newIndex(t, indexName)
+	defer closeFn()
+
+	require.NoError(t, core.ZINC_INDEX_ALIAS_LIST.AddIndexesToAlias("del_alias_1", []string{indexName}))
+	require.NoError(t, core.ZINC_INDEX_ALIAS_LIST.AddIndexesToAlias("del_alias_2", []string{indexName}))
+
+	c, w := utils.NewGinContext()
+	utils.SetGinRequestParams(c, map[string]string{"target": indexName, "target_alias": "del_alias_1"})
+	DeleteESAlias(c)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Equal(t, []string{"del_alias_2"}, core.ZINC_INDEX_ALIAS_LIST.GetAliasesForIndex(indexName))
+}

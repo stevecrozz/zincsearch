@@ -104,6 +104,67 @@ func AddOrRemoveESAlias(c *gin.Context) {
 	zutils.GinRenderJSON(c, http.StatusOK, gin.H{"acknowledged": true})
 }
 
+// @Id PutESAlias
+// @Summary Add index alias for compatible ES
+// @security BasicAuth
+// @Tags    Index
+// @Produce json
+// @Param   target path  string  true  "Target Index"
+// @Param   target_alias path  string  true  "Target Alias"
+// @Success 200 {object} map[string]interface{}
+// @Failure 404 {object} meta.HTTPResponseError
+// @Router /es/{target}/_alias/{target_alias} [put]
+func PutESAlias(c *gin.Context) {
+	addMap := map[string][]string{}
+	b := &base{Aliases: strings.Split(c.Param("target_alias"), ",")}
+	indexList := core.ZINC_INDEX_LIST.List()
+	for _, indexName := range strings.Split(c.Param("target"), ",") {
+		matchAndAddToMap(indexList, indexName, addMap, b)
+	}
+
+	if len(addMap) == 0 {
+		zutils.GinRenderJSON(c, http.StatusNotFound, meta.HTTPResponseError{Error: "index " + c.Param("target") + " does not exists"})
+		return
+	}
+
+	for alias, indexes := range addMap {
+		if err := core.ZINC_INDEX_ALIAS_LIST.AddIndexesToAlias(alias, indexes); err != nil {
+			zutils.GinRenderJSON(c, http.StatusInternalServerError, meta.HTTPResponseError{Error: err.Error()})
+			return
+		}
+	}
+
+	zutils.GinRenderJSON(c, http.StatusOK, gin.H{"acknowledged": true})
+}
+
+// @Id DeleteESAlias
+// @Summary Remove index alias for compatible ES
+// @security BasicAuth
+// @Tags    Index
+// @Produce json
+// @Param   target path  string  true  "Target Index"
+// @Param   target_alias path  string  true  "Target Alias"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} meta.HTTPResponseError
+// @Router /es/{target}/_alias/{target_alias} [delete]
+func DeleteESAlias(c *gin.Context) {
+	removeMap := map[string][]string{}
+	b := &base{Aliases: strings.Split(c.Param("target_alias"), ",")}
+	indexList := core.ZINC_INDEX_LIST.List()
+	for _, indexName := range strings.Split(c.Param("target"), ",") {
+		matchAndAddToRemoveMap(indexList, indexName, removeMap, b)
+	}
+
+	for alias, indexes := range removeMap {
+		if err := core.ZINC_INDEX_ALIAS_LIST.RemoveIndexesFromAlias(alias, indexes); err != nil {
+			zutils.GinRenderJSON(c, http.StatusInternalServerError, meta.HTTPResponseError{Error: err.Error()})
+			return
+		}
+	}
+
+	zutils.GinRenderJSON(c, http.StatusOK, gin.H{"acknowledged": true})
+}
+
 // @Id GetESAliases
 // @Summary Get index alias for compatible ES
 // @security BasicAuth
