@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDeleteIndex(t *testing.T) {
@@ -62,4 +63,28 @@ func TestDeleteIndex(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDeleteIndexRemovesAliases(t *testing.T) {
+	indexName := "TestDeleteIndexRemovesAliases.index_1"
+	otherName := "TestDeleteIndexRemovesAliases.index_2"
+	for _, name := range []string{indexName, otherName} {
+		index, err := NewIndex(name, "disk", 2)
+		require.NoError(t, err)
+		require.NoError(t, StoreIndex(index))
+	}
+	defer func() { _ = DeleteIndex(otherName) }()
+
+	require.NoError(t, ZINC_INDEX_ALIAS_LIST.AddIndexesToAlias("TestDeleteIndexRemovesAliases.shared", []string{indexName, otherName}))
+	require.NoError(t, ZINC_INDEX_ALIAS_LIST.AddIndexesToAlias("TestDeleteIndexRemovesAliases.only", []string{indexName}))
+	defer func() { _ = ZINC_INDEX_ALIAS_LIST.RemoveIndexFromAllAliases(otherName) }()
+
+	require.NoError(t, DeleteIndex(indexName))
+
+	assert.Empty(t, ZINC_INDEX_ALIAS_LIST.GetAliasesForIndex(indexName))
+	indexes, ok := ZINC_INDEX_ALIAS_LIST.GetIndexesForAlias("TestDeleteIndexRemovesAliases.shared")
+	assert.True(t, ok)
+	assert.Equal(t, []string{otherName}, indexes)
+	_, ok = ZINC_INDEX_ALIAS_LIST.GetIndexesForAlias("TestDeleteIndexRemovesAliases.only")
+	assert.False(t, ok)
 }

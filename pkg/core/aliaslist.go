@@ -72,7 +72,7 @@ func (al *AliasList) RemoveIndexesFromAlias(alias string, removeIndexes []string
 		}
 	}
 
-	al.Aliases[alias] = indexes[:lastIndex]
+	al.setAliasIndexes(alias, indexes[:lastIndex])
 
 	err := metadata.Alias.Set(al.Aliases)
 	if err != nil {
@@ -83,6 +83,46 @@ func (al *AliasList) RemoveIndexesFromAlias(alias string, removeIndexes []string
 
 	al.lock.Unlock()
 	return nil
+}
+
+// RemoveIndexFromAllAliases removes the index from every alias that contains it
+func (al *AliasList) RemoveIndexFromAllAliases(indexName string) error {
+	al.lock.Lock()
+	defer al.lock.Unlock()
+
+	changed := false
+	for alias, indexes := range al.Aliases {
+		kept := make([]string, 0, len(indexes))
+		for _, index := range indexes {
+			if index != indexName {
+				kept = append(kept, index)
+			}
+		}
+		if len(kept) != len(indexes) {
+			al.setAliasIndexes(alias, kept)
+			changed = true
+		}
+	}
+	if !changed {
+		return nil
+	}
+
+	err := metadata.Alias.Set(al.Aliases)
+	if err != nil {
+		log.Err(err).Msg("failed to save alias in metadata after remove index operation")
+		return err
+	}
+	return nil
+}
+
+// setAliasIndexes stores the indexes for an alias, dropping the alias when
+// it no longer points at any index. Caller must hold the lock.
+func (al *AliasList) setAliasIndexes(alias string, indexes []string) {
+	if len(indexes) == 0 {
+		delete(al.Aliases, alias)
+		return
+	}
+	al.Aliases[alias] = indexes
 }
 
 func (al *AliasList) GetIndexesForAlias(aliasName string) ([]string, bool) {

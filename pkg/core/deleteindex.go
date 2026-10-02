@@ -42,6 +42,11 @@ func DeleteIndex(name string) error {
 		log.Error().Err(err).Msg("failed to delete index")
 	}
 
-	// 4. Delete form metadata
+	// 4. Remove from aliases
+	if err := ZINC_INDEX_ALIAS_LIST.RemoveIndexFromAllAliases(name); err != nil {
+		log.Error().Err(err).Msg("failed to remove index from aliases")
+	}
+
+	// 5. Delete form metadata
 	return metadata.Index.Delete(name)
 }

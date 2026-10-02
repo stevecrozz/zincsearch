@@ -121,6 +121,20 @@ func TestAliasList_RemoveIndexesFromAlias(t *testing.T) {
 	}
 }
 
+func TestAliasList_RemoveIndexFromAllAliases(t *testing.T) {
+	al := NewAliasList()
+	al.Aliases["alias_1"] = []string{"index_0", "index_1"}
+	al.Aliases["alias_2"] = []string{"index_1"}
+	al.Aliases["alias_3"] = []string{"index_2"}
+
+	require.NoError(t, al.RemoveIndexFromAllAliases("index_1"))
+
+	require.Equal(t, map[string][]string{
+		"alias_1": {"index_0"},
+		"alias_3": {"index_2"},
+	}, al.Aliases)
+}
+
 func TestAliasList_GetIndexesForAlias(t *testing.T) {
 	type args struct {
 		aliasName string
