@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -90,4 +91,14 @@ func TestApiESRefreshMakesWritesSearchable(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestApiESDeleteWrittenIndexIsFast(t *testing.T) {
+	index := "es-compat-delete-fast"
+	require.Equal(t, http.StatusOK, request("PUT", "/es/"+index, strings.NewReader(`{}`)).Code)
+	require.Equal(t, http.StatusOK, request("PUT", "/es/"+index+"/_doc/1", strings.NewReader(`{"name":"x"}`)).Code)
+
+	start := time.Now()
+	require.Equal(t, http.StatusOK, request("DELETE", "/es/"+index, nil).Code)
+	assert.Less(t, time.Since(start), time.Second)
 }

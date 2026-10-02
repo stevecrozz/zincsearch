@@ -58,7 +58,6 @@ func (s *IndexShard) OpenWAL() error {
 
 	// set wal opened
 	atomic.StoreUint64(&s.open, 1)
-	s.close = make(chan struct{})
 
 	// check wal rollback
 	s.walLock.Lock()

@@ -54,7 +54,6 @@ type IndexShard struct {
 	shards []*IndexSecondShard
 	wal    *wal.Log
 	lock   sync.RWMutex
-	close  chan struct{}
 	// walLock serializes WAL consumption with itself and with closing the WAL
 	walLock sync.Mutex
 }
@@ -266,15 +265,13 @@ func (s *IndexShard) openWriter(shardID int64) error {
 }
 
 func (s *IndexShard) Close() error {
-	if atomic.LoadUint64(&s.open) == 0 {
-		return nil
-	}
-
-	s.close <- struct{}{}
-	atomic.StoreUint64(&s.open, 0)
-
 	s.walLock.Lock()
 	defer s.walLock.Unlock()
+	if !atomic.CompareAndSwapUint64(&s.open, 1, 0) {
+		return nil
+	}
+	ZINC_INDEX_SHARD_WAL_LIST.Remove(s.GetShardName())
+
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	for _, secondShard := range s.shards {

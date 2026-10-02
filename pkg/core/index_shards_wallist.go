@@ -73,19 +73,12 @@ func (t *IndexShardWALList) ConsumeWAL() {
 	eg.SetLimit(config.Global.Shard.GoroutineNum)
 	tick := time.NewTicker(config.Global.WalSyncInterval)
 	for range tick.C {
-		shardClosed := make(chan string, t.Len())
 		indexUpdated := make(chan string, t.Len())
 		for _, shard := range t.List() {
 			shard := shard
 			indexes[shard.GetIndexName()] = shard.root
 			eg.Go(func() error {
-				select {
-				case <-shard.close:
-					shardClosed <- shard.GetShardName()
-					return nil
-				default:
-					// continue
-				}
+				// closed shards remove themselves from the list and are skipped by ConsumeWAL
 				updated := shard.ConsumeWAL()
 				if updated {
 					indexUpdated <- shard.GetIndexName()
@@ -94,13 +87,7 @@ func (t *IndexShardWALList) ConsumeWAL() {
 			})
 		}
 		_ = eg.Wait()
-		close(shardClosed)
 		close(indexUpdated)
-
-		// check shard closed
-		for name := range shardClosed {
-			t.Remove(name)
-		}
 
 		// update index stats
 		for name := range indexUpdated {
