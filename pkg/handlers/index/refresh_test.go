@@ -110,6 +110,30 @@ func TestRefresh(t *testing.T) {
 		_ = core.DeleteIndex("TestRefresh.index_2")
 	})
 
+	t.Run("refresh comma-separated indexes, aliases and wildcards", func(t *testing.T) {
+		idx3, err := core.NewIndex("TestRefresh.index_3", "disk", 2)
+		require.NoError(t, err)
+		require.NoError(t, core.StoreIndex(idx3))
+		defer func() { _ = core.DeleteIndex("TestRefresh.index_3") }()
+		require.NoError(t, core.ZINC_INDEX_ALIAS_LIST.AddIndexesToAlias("TestRefresh.alias_3", []string{"TestRefresh.index_3"}))
+
+		for _, target := range []string{
+			"TestRefresh.index_1,TestRefresh.alias_3",
+			"TestRefresh.index_*,TestRefresh.alias_3",
+		} {
+			c, w := utils.NewGinContext()
+			utils.SetGinRequestParams(c, map[string]string{"target": target})
+			Refresh(c)
+			assert.Equal(t, http.StatusOK, w.Code, target)
+		}
+
+		c, w := utils.NewGinContext()
+		utils.SetGinRequestParams(c, map[string]string{"target": "TestRefresh.index_1,TestRefresh.missing"})
+		Refresh(c)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Contains(t, w.Body.String(), "TestRefresh.missing does not exists")
+	})
+
 	t.Run("cleanup", func(t *testing.T) {
 		_ = core.DeleteIndex("TestRefresh.index_1")
 	})
