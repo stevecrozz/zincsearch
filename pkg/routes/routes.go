@@ -155,6 +155,8 @@ func setESRoutes(r *gin.Engine, prefix string) {
 	}
 	r.GET(prefix+"/_cluster/health", ESMiddleware, elastic.GetClusterHealth)
 	r.GET(prefix+"/_cluster/health/:target", ESMiddleware, elastic.GetClusterHealth)
+	r.GET(prefix+"/_cluster/settings", ESMiddleware, elastic.GetClusterSettings)
+	r.PUT(prefix+"/_cluster/settings", ESMiddleware, elastic.PutClusterSettings)
 	r.GET(prefix+"/_cat/indices", ESMiddleware, index.CatIndices)
 	r.GET(prefix+"/_cat/indices/:target", ESMiddleware, index.CatIndices)
 	r.GET(prefix+"/_license", ESMiddleware, func(c *gin.Context) {
