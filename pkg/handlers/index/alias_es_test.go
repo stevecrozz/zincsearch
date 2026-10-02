@@ -252,6 +252,43 @@ func TestGetESAliases(t *testing.T) {
 			wantCode: http.StatusOK,
 			wantErr:  false,
 		},
+		{
+			name: "should_404_for_missing_target_alias",
+			args: args{
+				result: `{"error":"alias [missing_alias] missing","status":404}`,
+			},
+			params: map[string]string{
+				"target_alias": "missing_alias",
+			},
+			nFn: func(index *core.Index) {
+				require.NoError(t, core.ZINC_INDEX_ALIAS_LIST.AddIndexesToAlias("existing_alias_1", []string{index.GetName()}))
+			},
+			wantCode: http.StatusNotFound,
+			wantErr:  false,
+		},
+		{
+			name: "should_404_for_target_alias_not_on_target_index",
+			args: args{
+				result: `{"error":"alias [existing_alias_1] missing","status":404}`,
+			},
+			params: map[string]string{
+				"target":       "other_index",
+				"target_alias": "existing_alias_1",
+			},
+			nFn: func(index *core.Index) {
+				require.NoError(t, core.ZINC_INDEX_ALIAS_LIST.AddIndexesToAlias("existing_alias_1", []string{index.GetName()}))
+			},
+			wantCode: http.StatusNotFound,
+			wantErr:  false,
+		},
+		{
+			name: "should_get_empty_map_without_target_alias",
+			args: args{
+				result: `{}`,
+			},
+			wantCode: http.StatusOK,
+			wantErr:  false,
+		},
 	}
 
 	for _, tt := range tests {

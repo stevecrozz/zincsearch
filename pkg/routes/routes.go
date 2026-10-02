@@ -207,6 +207,8 @@ func setESRoutes(r *gin.Engine, prefix string) {
 	r.GET(prefix+"/:target/_alias", AuthMiddleware("index.GetESAliases"), ESMiddleware, index.GetESAliases)
 	r.GET(prefix+"/_alias/:target_alias", AuthMiddleware("index.GetESAliases"), ESMiddleware, index.GetESAliases)
 	r.HEAD(prefix+"/_alias/:target_alias", AuthMiddleware("index.GetESAliases"), ESMiddleware, index.GetESAliases)
+	r.GET(prefix+"/:target/_alias/:target_alias", AuthMiddleware("index.GetESAliases"), ESMiddleware, index.GetESAliases)
+	r.HEAD(prefix+"/:target/_alias/:target_alias", AuthMiddleware("index.GetESAliases"), ESMiddleware, index.GetESAliases)
 
 	r.POST(prefix+"/_bulk", AuthMiddleware("document.ESBulk"), ESMiddleware, document.ESBulk)
 	r.POST(prefix+"/:target/_bulk", AuthMiddleware("document.ESBulk"), ESMiddleware, document.ESBulk)

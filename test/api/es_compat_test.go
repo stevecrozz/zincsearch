@@ -45,3 +45,17 @@ func TestApiESPutAlias(t *testing.T) {
 		})
 	}
 }
+
+func TestApiESAliasExists(t *testing.T) {
+	index := "es-compat-alias-exists"
+	alias := index + "-alias"
+	require.Equal(t, http.StatusOK, request("PUT", "/es/"+index, strings.NewReader(`{}`)).Code)
+	defer request("DELETE", "/es/"+index, nil)
+	require.Equal(t, http.StatusOK, request("PUT", "/es/"+index+"/_alias/"+alias, nil).Code)
+
+	assert.Equal(t, http.StatusOK, request("HEAD", "/es/_alias/"+alias, nil).Code)
+	assert.Equal(t, http.StatusOK, request("HEAD", "/es/"+index+"/_alias/"+alias, nil).Code)
+	assert.Equal(t, http.StatusNotFound, request("HEAD", "/es/_alias/"+alias+"-next", nil).Code)
+	assert.Equal(t, http.StatusNotFound, request("GET", "/es/_alias/"+alias+"-next", nil).Code)
+	assert.Equal(t, http.StatusNotFound, request("HEAD", "/es/"+index+"/_alias/"+alias+"-next", nil).Code)
+}

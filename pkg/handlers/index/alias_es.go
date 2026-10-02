@@ -173,7 +173,7 @@ func DeleteESAlias(c *gin.Context) {
 // @Param   target path  string  false  "Target Index"
 // @Param   target_alias path  string  false  "Target Alias"
 // @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} meta.HTTPResponseError
+// @Failure 404 {object} map[string]interface{}
 // @Router /es/{target}/_alias/{target_alias} [get]
 func GetESAliases(c *gin.Context) {
 	targetIndex := c.Param("target")
@@ -191,6 +191,10 @@ func GetESAliases(c *gin.Context) {
 	}
 
 	m := core.ZINC_INDEX_ALIAS_LIST.GetAliasMap(targetIndexes, targetAliases)
+	if len(targetAliases) > 0 && len(m) == 0 {
+		zutils.GinRenderJSON(c, http.StatusNotFound, gin.H{"error": "alias [" + targetAlias + "] missing", "status": http.StatusNotFound})
+		return
+	}
 
 	zutils.GinRenderJSON(c, http.StatusOK, m)
 }
