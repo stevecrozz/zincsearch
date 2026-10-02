@@ -341,6 +341,28 @@ func (index *Index) UpdateStatsBySecondShard(id string, secondIndex int64) {
 	index.lock.Unlock()
 }
 
+// Refresh consumes pending WAL entries on every shard so that all writes
+// acknowledged before the call are visible to search when it returns.
+func (index *Index) Refresh() error {
+	var updated atomic.Bool
+	eg := errgroup.Group{}
+	for _, shard := range index.shards {
+		shard := shard
+		eg.Go(func() error {
+			ok, err := shard.DrainWAL()
+			if ok {
+				updated.Store(true)
+			}
+			return err
+		})
+	}
+	err := eg.Wait()
+	if updated.Load() {
+		index.updateStatsAfterConsume()
+	}
+	return err
+}
+
 // Reopen just close the index, it will open automatically by trigger
 // Deprecated: it will be removed in the future
 func (index *Index) Reopen() error {

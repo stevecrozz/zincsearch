@@ -55,6 +55,8 @@ type IndexShard struct {
 	wal    *wal.Log
 	lock   sync.RWMutex
 	close  chan struct{}
+	// walLock serializes WAL consumption with itself and with closing the WAL
+	walLock sync.Mutex
 }
 
 // IndexSecondShard second layer shard by auto increate shards for index.
@@ -271,6 +273,8 @@ func (s *IndexShard) Close() error {
 	s.close <- struct{}{}
 	atomic.StoreUint64(&s.open, 0)
 
+	s.walLock.Lock()
+	defer s.walLock.Unlock()
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	for _, secondShard := range s.shards {

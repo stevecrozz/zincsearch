@@ -109,18 +109,24 @@ func (t *IndexShardWALList) ConsumeWAL() {
 				continue
 			}
 
-			_ = index.UpdateMetadata()
-			size := index.GetWALSize()
-			if size == uint64(index.GetShardNum()) {
-				size = 0
-			}
-			index.UpdateWALSize(size)
-
-			stats := index.GetStats()
-			SetMetricStatsByIndex(name, "doc_num", float64(atomic.LoadUint64(&stats.DocNum)))
-			SetMetricStatsByIndex(name, "storage_size", float64(atomic.LoadUint64(&stats.StorageSize)/1024/1024)) // convert to MB
+			index.updateStatsAfterConsume()
 
 			delete(indexes, name)
 		}
 	}
+}
+
+// updateStatsAfterConsume refreshes index metadata and metrics after WAL entries were consumed
+func (index *Index) updateStatsAfterConsume() {
+	_ = index.UpdateMetadata()
+	size := index.GetWALSize()
+	if size == uint64(index.GetShardNum()) {
+		size = 0
+	}
+	index.UpdateWALSize(size)
+
+	name := index.GetName()
+	stats := index.GetStats()
+	SetMetricStatsByIndex(name, "doc_num", float64(atomic.LoadUint64(&stats.DocNum)))
+	SetMetricStatsByIndex(name, "storage_size", float64(atomic.LoadUint64(&stats.StorageSize)/1024/1024)) // convert to MB
 }

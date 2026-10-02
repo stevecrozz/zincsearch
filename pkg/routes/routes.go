@@ -214,9 +214,7 @@ func setESRoutes(r *gin.Engine, prefix string) {
 	r.POST(prefix+"/:target/_bulk", AuthMiddleware("document.ESBulk"), ESMiddleware, document.ESBulk)
 	r.PUT(prefix+"/:target/_bulk", AuthMiddleware("document.ESBulk"), ESMiddleware, document.ESBulk)
 	r.POST(prefix+"/:target/_refresh", AuthMiddleware("index.Refresh"), index.Refresh)
-	r.POST(prefix+"/:target/_flush", ESMiddleware, func(c *gin.Context) {
-		zutils.GinRenderJSON(c, http.StatusOK, gin.H{"_shards": gin.H{"total": 1, "successful": 1, "failed": 0}})
-	})
+	r.POST(prefix+"/:target/_flush", AuthMiddleware("index.Refresh"), ESMiddleware, index.FlushES)
 
 	r.POST(prefix+"/:target/_doc", AuthMiddleware("document.CreateUpdate"), ESMiddleware, document.CreateUpdate)
 	r.POST(prefix+"/:target/_doc/:id", AuthMiddleware("document.CreateUpdate"), ESMiddleware, document.CreateUpdate)

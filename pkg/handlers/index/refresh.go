@@ -24,6 +24,7 @@ import (
 
 	"github.com/zincsearch/zincsearch/pkg/core"
 	"github.com/zincsearch/zincsearch/pkg/meta"
+	"github.com/zincsearch/zincsearch/pkg/zutils"
 )
 
 // @Id Refresh
@@ -36,10 +37,25 @@ import (
 // @Failure 400 {object} meta.HTTPResponseError
 // @Router /api/index/{index}/refresh [post]
 func Refresh(c *gin.Context) {
+	if refreshTargets(c) {
+		c.JSON(http.StatusOK, meta.HTTPResponse{Message: "ok"})
+	}
+}
+
+// FlushES refreshes the target indexes and responds in the ES _flush format
+func FlushES(c *gin.Context) {
+	if refreshTargets(c) {
+		zutils.GinRenderJSON(c, http.StatusOK, gin.H{"_shards": gin.H{"total": 1, "successful": 1, "failed": 0}})
+	}
+}
+
+// refreshTargets makes pending writes searchable on every index the target
+// resolves to. On failure it writes the error response and returns false.
+func refreshTargets(c *gin.Context) bool {
 	indexNames, err := resolveTargetIndexes(c.Param("target"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, meta.HTTPResponseError{Error: err.Error()})
-		return
+		return false
 	}
 
 	for _, name := range indexNames {
@@ -47,13 +63,12 @@ func Refresh(c *gin.Context) {
 		if !exists {
 			continue
 		}
-		if err := idx.Reopen(); err != nil {
+		if err := idx.Refresh(); err != nil {
 			c.JSON(http.StatusBadRequest, meta.HTTPResponseError{Error: err.Error()})
-			return
+			return false
 		}
 	}
-
-	c.JSON(http.StatusOK, meta.HTTPResponse{Message: "ok"})
+	return true
 }
 
 // resolveTargetIndexes expands a comma-separated list of index names, aliases

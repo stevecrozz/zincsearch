@@ -61,7 +61,10 @@ func (s *IndexShard) OpenWAL() error {
 	s.close = make(chan struct{})
 
 	// check wal rollback
-	if err = s.Rollback(); err != nil {
+	s.walLock.Lock()
+	err = s.Rollback()
+	s.walLock.Unlock()
+	if err != nil {
 		return err
 	}
 
@@ -138,6 +141,44 @@ func (s *IndexShard) Rollback() error {
 
 // ConsumeWAL consume WAL for index returns if there is any data updated
 func (s *IndexShard) ConsumeWAL() bool {
+	s.walLock.Lock()
+	defer s.walLock.Unlock()
+	if atomic.LoadUint64(&s.open) == 0 || s.wal == nil {
+		return false
+	}
+	return s.consumeWAL()
+}
+
+// DrainWAL consumes the WAL until every entry written before the call is
+// searchable. Returns whether any data was updated.
+func (s *IndexShard) DrainWAL() (bool, error) {
+	s.walLock.Lock()
+	defer s.walLock.Unlock()
+	if atomic.LoadUint64(&s.open) == 0 || s.wal == nil {
+		return false, nil
+	}
+
+	target, err := s.wal.LastIndex()
+	if err != nil {
+		return false, err
+	}
+	updated := false
+	for {
+		_, committed, err := s.readRedoLog(RedoActionWrite)
+		if err != nil && err.Error() != errors.ErrNotFound.Error() {
+			return updated, err
+		}
+		if committed >= target {
+			return updated, nil
+		}
+		if !s.consumeWAL() {
+			return updated, fmt.Errorf("index %s shard %s: failed to consume WAL", s.GetIndexName(), s.GetID())
+		}
+		updated = true
+	}
+}
+
+func (s *IndexShard) consumeWAL() bool {
 	if err := s.wal.Sync(); err != nil {
 		log.Error().Err(err).Str("index", s.GetIndexName()).Str("shard", s.GetID()).Msg("consume wal.Sync()")
 	}
