@@ -152,6 +152,11 @@ func setESRoutes(r *gin.Engine, prefix string) {
 		r.HEAD(prefix+"/", ESMiddleware, func(c *gin.Context) {
 			zutils.GinRenderJSON(c, http.StatusOK, elastic.NewESInfo(c))
 		})
+	} else {
+		// ES mounted at the root: GET / stays the UI redirect, but clients ping with HEAD /
+		r.HEAD("/", ESMiddleware, func(c *gin.Context) {
+			zutils.GinRenderJSON(c, http.StatusOK, elastic.NewESInfo(c))
+		})
 	}
 	r.GET(prefix+"/_cluster/health", ESMiddleware, elastic.GetClusterHealth)
 	r.GET(prefix+"/_cluster/health/:target", ESMiddleware, elastic.GetClusterHealth)
