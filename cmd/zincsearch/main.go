@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"strings"
 	"syscall"
 	"time"
@@ -36,6 +37,7 @@ import (
 	"github.com/zincsearch/zincsearch/pkg/meta"
 	"github.com/zincsearch/zincsearch/pkg/metadata"
 	"github.com/zincsearch/zincsearch/pkg/routes"
+	"github.com/zincsearch/zincsearch/pkg/zutils"
 )
 
 // @title           Zinc Search engine API
@@ -59,6 +61,9 @@ func main() {
 		os.Exit(0)
 	}
 	log.Info().Msgf("Starting Zinc %s", meta.Version)
+
+	// Respect the container memory limit
+	memoryLimit()
 
 	// Initialize telemetry
 	telemetry()
@@ -163,6 +168,21 @@ func sentries() {
 	if err != nil {
 		log.Print("sentry.Init: ", err.Error())
 	}
+}
+
+// memoryLimit sets a Go soft memory limit below the cgroup limit, so the heap
+// is collected before the container is OOM-killed. An explicit GOMEMLIMIT wins.
+func memoryLimit() {
+	if os.Getenv("GOMEMLIMIT") != "" {
+		return
+	}
+	limit, ok := zutils.CgroupMemoryLimit("/sys/fs/cgroup")
+	if !ok {
+		return
+	}
+	soft := int64(float64(limit) * 0.75)
+	debug.SetMemoryLimit(soft)
+	log.Info().Int64("cgroup_limit", limit).Int64("go_memory_limit", soft).Msg("set Go memory limit from cgroup")
 }
 
 func profiling() {
