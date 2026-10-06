@@ -353,3 +353,23 @@ func TestIndex_Settings(t *testing.T) {
 		assert.NoError(t, err)
 	})
 }
+
+func TestIndex_DocNumDropsToZeroAfterDeletingEveryDocument(t *testing.T) {
+	index, err := NewIndex("TestIndex_DocNumDropsToZero.index", "disk", 2)
+	assert.NoError(t, err)
+	assert.NoError(t, StoreIndex(index))
+	defer func() { _ = DeleteIndex(index.GetName()) }()
+
+	ids := []string{"1", "2", "3"}
+	for _, id := range ids {
+		assert.NoError(t, index.CreateDocument(id, map[string]interface{}{"n": id}, false))
+	}
+	assert.NoError(t, index.Refresh())
+	assert.Equal(t, uint64(3), index.GetStats().DocNum)
+
+	for _, id := range ids {
+		assert.NoError(t, index.DeleteDocument(id))
+	}
+	assert.NoError(t, index.Refresh())
+	assert.Equal(t, uint64(0), index.GetStats().DocNum)
+}
