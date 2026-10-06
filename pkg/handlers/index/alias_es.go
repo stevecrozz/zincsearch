@@ -17,11 +17,9 @@ package index
 
 import (
 	"net/http"
-	"regexp"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/rs/zerolog/log"
 
 	"github.com/zincsearch/zincsearch/pkg/core"
 	"github.com/zincsearch/zincsearch/pkg/meta"
@@ -199,42 +197,6 @@ func GetESAliases(c *gin.Context) {
 	zutils.GinRenderJSON(c, http.StatusOK, m)
 }
 
-func indexNameMatches(name, indexName string) bool {
-	if name == indexName {
-		return true
-	}
-
-	if strings.Contains(name, "*") {
-		p, err := getRegex(name)
-		if err != nil {
-			log.Err(err).Msg("failed to compile regex")
-			return false
-		}
-
-		return p.MatchString(indexName)
-	}
-
-	return false
-}
-
-func getRegex(s string) (*regexp.Regexp, error) {
-	parts := strings.Split(s, "*")
-	pattern := ""
-	for i, part := range parts {
-		pattern += part
-		if i < len(parts)-1 {
-			pattern += "[a-zA-Z0-9_.-]+"
-		}
-	}
-
-	p, err := regexp.Compile(pattern)
-	if err != nil {
-		return nil, err
-	}
-
-	return p, nil
-}
-
 func matchAndAddToRemoveMap(indexList []*core.Index, indexName string, m map[string][]string, b *base) {
 	if !strings.Contains(indexName, "*") {
 		if b.Alias != "" {
@@ -249,7 +211,7 @@ func matchAndAddToRemoveMap(indexList []*core.Index, indexName string, m map[str
 
 	for _, index := range indexList {
 		n := index.GetName()
-		if indexNameMatches(indexName, n) {
+		if core.IndexNameMatches(indexName, n) {
 			if b.Alias != "" {
 				m[b.Alias] = append(m[b.Alias], n)
 			} else {
@@ -285,7 +247,7 @@ func matchAndAddToMap(indexList []*core.Index, indexName string, m map[string][]
 	// indexName contains a wildcard(*) r, range over the entire indexlist looking for matches
 	for _, index := range indexList {
 		n = index.GetName()
-		if indexNameMatches(indexName, n) {
+		if core.IndexNameMatches(indexName, n) {
 			if b.Alias != "" { // alias takes precedence over aliases
 				m[b.Alias] = append(m[b.Alias], n)
 			} else {

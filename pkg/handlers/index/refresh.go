@@ -16,9 +16,7 @@
 package index
 
 import (
-	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -52,7 +50,7 @@ func FlushES(c *gin.Context) {
 // refreshTargets makes pending writes searchable on every index the target
 // resolves to. On failure it writes the error response and returns false.
 func refreshTargets(c *gin.Context) bool {
-	indexNames, err := resolveTargetIndexes(c.Param("target"))
+	indexNames, err := core.ResolveTargetIndexes(c.Param("target"), false)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, meta.HTTPResponseError{Error: err.Error()})
 		return false
@@ -69,42 +67,4 @@ func refreshTargets(c *gin.Context) bool {
 		}
 	}
 	return true
-}
-
-// resolveTargetIndexes expands a comma-separated list of index names, aliases
-// and wildcard patterns into the distinct index names it refers to.
-// A name without a wildcard that matches nothing is an error.
-func resolveTargetIndexes(target string) ([]string, error) {
-	var indexNames []string
-	seen := make(map[string]struct{})
-	add := func(name string) {
-		if _, ok := seen[name]; !ok {
-			seen[name] = struct{}{}
-			indexNames = append(indexNames, name)
-		}
-	}
-
-	for _, name := range strings.Split(target, ",") {
-		if strings.Contains(name, "*") {
-			for _, index := range core.ZINC_INDEX_LIST.List() {
-				if indexNameMatches(name, index.GetName()) {
-					add(index.GetName())
-				}
-			}
-			continue
-		}
-		if _, exists := core.GetIndex(name); exists {
-			add(name)
-			continue
-		}
-		if aliased, ok := core.ZINC_INDEX_ALIAS_LIST.GetIndexesForAlias(name); ok && len(aliased) > 0 {
-			for _, n := range aliased {
-				add(n)
-			}
-			continue
-		}
-		return nil, errors.New("index " + name + " does not exists")
-	}
-
-	return indexNames, nil
 }
