@@ -226,7 +226,7 @@ func setESRoutes(r *gin.Engine, prefix string) {
 	r.PUT(prefix+"/:target/_doc/:id", AuthMiddleware("document.CreateUpdate"), ESMiddleware, document.CreateUpdate)
 	r.PUT(prefix+"/:target/_create/:id", AuthMiddleware("document.CreateUpdate"), ESMiddleware, document.CreateUpdate)
 	r.POST(prefix+"/:target/_create/:id", AuthMiddleware("document.CreateUpdate"), ESMiddleware, document.CreateUpdate)
-	r.POST(prefix+"/:target/_update/:id", AuthMiddleware("document.Update"), ESMiddleware, document.Update)
+	r.POST(prefix+"/:target/_update/:id", AuthMiddleware("document.Update"), ESMiddleware, document.ESUpdate)
 	r.DELETE(prefix+"/:target", AuthMiddleware("index.Delete"), ESMiddleware, index.DeleteES)
 	r.DELETE(prefix+"/:target/_doc/:id", AuthMiddleware("document.Delete"), ESMiddleware, document.Delete)
 	r.GET(prefix+"/:target/_doc/:id", AuthMiddleware("document.Get"), ESMiddleware, document.Get)
