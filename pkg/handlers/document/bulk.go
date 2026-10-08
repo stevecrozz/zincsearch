@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -29,6 +30,7 @@ import (
 
 	"github.com/zincsearch/zincsearch/pkg/config"
 	"github.com/zincsearch/zincsearch/pkg/core"
+	zincerrors "github.com/zincsearch/zincsearch/pkg/errors"
 	"github.com/zincsearch/zincsearch/pkg/ider"
 	"github.com/zincsearch/zincsearch/pkg/meta"
 	"github.com/zincsearch/zincsearch/pkg/zutils"
@@ -124,14 +126,15 @@ func BulkWorker(target string, body io.Reader) (*BulkResponse, error) {
 			nextLineIsData = false
 			update := false
 
-			docID := ""
-			if val, ok := lastLineMetaData["_id"]; ok && val != nil {
-				switch v := val.(type) {
-				case string:
-					docID = v
-				default:
-					docID = fmt.Sprintf("%v", v)
-				}
+			docID, idErr := bulkDocID(lastLineMetaData["_id"])
+			if idErr != nil {
+				bulkRes.Errors = true
+				item := NewBulkResponseItem(bulkRes.Count, fmt.Sprint(lastLineMetaData["_index"]), "", "", idErr)
+				item.Status = http.StatusBadRequest
+				bulkRes.Items = append(bulkRes.Items, map[string]BulkResponseItem{
+					fmt.Sprint(lastLineMetaData["operation"]): item,
+				})
+				continue
 			}
 			if docID == "" {
 				docID = ider.Generate()
@@ -198,8 +201,8 @@ func BulkWorker(target string, body io.Reader) (*BulkResponse, error) {
 					nextLineIsData = true
 					lastLineMetaData["operation"] = k
 
-					if vm["_index"] != "" { // if index is specified in metadata then it overtakes the index in the query path
-						lastLineMetaData["_index"] = vm["_index"]
+					if s, ok := vm["_index"].(string); ok && s != "" { // if index is specified in metadata then it overtakes the index in the query path
+						lastLineMetaData["_index"] = s
 					} else {
 						lastLineMetaData["_index"] = target
 					}
@@ -209,26 +212,47 @@ func BulkWorker(target string, body io.Reader) (*BulkResponse, error) {
 					lastLineMetaData["_id"] = vm["_id"]
 				} else if k == "delete" {
 					nextLineIsData = false
-					docID := vm["_id"].(string)
 					indexName := target
-					if vm["_index"] != "" { // if index is specified in metadata then it overtakes the index in the query path
-						indexName = vm["_index"].(string)
+					if s, ok := vm["_index"].(string); ok && s != "" { // if index is specified in metadata then it overtakes the index in the query path
+						indexName = s
 					}
 					if indexName == "" {
 						return nil, errors.New("bulk index data format error")
 					}
 
+					bulkRes.Count++
+					docID, err := bulkDocID(vm["_id"])
+					if err == nil && docID == "" {
+						err = errors.New("[_id] is missing")
+					}
+					if err != nil {
+						bulkRes.Errors = true
+						item := NewBulkResponseItem(bulkRes.Count, indexName, docID, "", err)
+						item.Status = http.StatusBadRequest
+						bulkRes.Items = append(bulkRes.Items, map[string]BulkResponseItem{"delete": item})
+						continue
+					}
+
+					if indexes, ok := core.ZINC_INDEX_ALIAS_LIST.GetIndexesForAlias(indexName); ok && len(indexes) > 0 {
+						indexName = indexes[0]
+					}
 					newIndex, _, err := core.GetOrCreateIndex(indexName, "", 0)
 					if err != nil {
 						return bulkRes, err
 					}
 
-					// delete
+					// delete; a missing document is a per-item 404, not a failure
+					result, status := "deleted", http.StatusOK
 					err = newIndex.DeleteDocument(docID)
-					bulkRes.Count++
-					bulkRes.Items = append(bulkRes.Items, map[string]BulkResponseItem{
-						"delete": NewBulkResponseItem(bulkRes.Count, indexName, docID, "deleted", err),
-					})
+					if err == zincerrors.ErrorIDNotFound {
+						result, status, err = "not_found", http.StatusNotFound, nil
+					} else if err != nil {
+						bulkRes.Errors = true
+						status = http.StatusInternalServerError
+					}
+					item := NewBulkResponseItem(bulkRes.Count, indexName, docID, result, err)
+					item.Status = status
+					bulkRes.Items = append(bulkRes.Items, map[string]BulkResponseItem{"delete": item})
 				} else {
 					lastLineMetaData["_index"] = target
 					lastLineMetaData["operation"] = "index"
@@ -242,6 +266,25 @@ func BulkWorker(target string, body io.Reader) (*BulkResponse, error) {
 	}
 
 	return bulkRes, nil
+}
+
+// bulkDocID coerces a bulk metadata _id to a string. ES accepts numeric IDs,
+// so 15 becomes "15". A nil _id returns "".
+func bulkDocID(val interface{}) (string, error) {
+	switch v := val.(type) {
+	case nil:
+		return "", nil
+	case string:
+		return v, nil
+	case float64:
+		return strconv.FormatFloat(v, 'f', -1, 64), nil
+	case int:
+		return strconv.Itoa(v), nil
+	case int64:
+		return strconv.FormatInt(v, 10), nil
+	default:
+		return "", fmt.Errorf("[_id] must be a string or number, got %T", val)
+	}
 }
 
 // DoesExistInThisRequest takes a slice and looks for an element in it. If found it will
