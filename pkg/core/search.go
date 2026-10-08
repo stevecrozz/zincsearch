@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/blugelabs/bluge"
+	"github.com/blugelabs/bluge/analysis"
 	"github.com/blugelabs/bluge/search"
 	"github.com/blugelabs/bluge/search/highlight"
 	"github.com/rs/zerolog/log"
@@ -28,8 +29,10 @@ import (
 	"github.com/zincsearch/zincsearch/pkg/meta"
 	"github.com/zincsearch/zincsearch/pkg/uquery"
 	"github.com/zincsearch/zincsearch/pkg/uquery/fields"
+	zinchighlight "github.com/zincsearch/zincsearch/pkg/uquery/highlight"
 	"github.com/zincsearch/zincsearch/pkg/uquery/source"
 	"github.com/zincsearch/zincsearch/pkg/uquery/timerange"
+	"github.com/zincsearch/zincsearch/pkg/zutils/json"
 )
 
 func (index *Index) Search(query *meta.ZincQuery) (*meta.SearchResponse, error) {
@@ -73,10 +76,10 @@ func (index *Index) Search(query *meta.ZincQuery) (*meta.SearchResponse, error) 
 		return nil, err
 	}
 
-	return searchV2(index.GetAllShardNum(), int64(len(readers)), dmi, query, mappings)
+	return searchV2(index.GetAllShardNum(), int64(len(readers)), dmi, query, mappings, analyzers)
 }
 
-func searchV2(shardNum, readerNum int64, dmi search.DocumentMatchIterator, query *meta.ZincQuery, mappings *meta.Mappings) (*meta.SearchResponse, error) {
+func searchV2(shardNum, readerNum int64, dmi search.DocumentMatchIterator, query *meta.ZincQuery, mappings *meta.Mappings, analyzers map[string]*analysis.Analyzer) (*meta.SearchResponse, error) {
 	resp := &meta.SearchResponse{
 		Hits: meta.Hits{Hits: []meta.Hit{}},
 	}
@@ -91,6 +94,11 @@ func searchV2(shardNum, readerNum int64, dmi search.DocumentMatchIterator, query
 		}
 	}
 
+	var highlightQuery interface{}
+	if query.Highlight != nil {
+		highlightQuery = zinchighlight.QueryMap(query.Query)
+	}
+
 	Hits := make([]meta.Hit, 0)
 	next, err := dmi.Next()
 	for err == nil && next != nil {
@@ -100,6 +108,7 @@ func searchV2(shardNum, readerNum int64, dmi search.DocumentMatchIterator, query
 		var sourceData map[string]interface{}
 		var fieldsData map[string]interface{}
 		var highlightData map[string]interface{}
+		var rawSource []byte
 		if query.Highlight != nil {
 			highlightData = make(map[string]interface{})
 		}
@@ -113,6 +122,9 @@ func searchV2(shardNum, readerNum int64, dmi search.DocumentMatchIterator, query
 				timestamp, _ = bluge.DecodeDateTime(value)
 			case "_source":
 				sourceData = source.Response(query.Source.(*meta.Source), value)
+				if query.Highlight != nil {
+					rawSource = append([]byte(nil), value...)
+				}
 				if query.Fields != nil {
 					fieldsData = fields.Response(query.Fields.([]*meta.Field), value, mappings)
 				}
@@ -137,6 +149,24 @@ func searchV2(shardNum, readerNum int64, dmi search.DocumentMatchIterator, query
 		if err != nil {
 			log.Printf("core.SearchV2: error accessing stored fields: %s", err.Error())
 			continue
+		}
+
+		// fields without stored term positions are highlighted from _source
+		if query.Highlight != nil && rawSource != nil {
+			var doc map[string]interface{}
+			for field, options := range query.Highlight.Fields {
+				if _, ok := highlightData[field]; ok {
+					continue
+				}
+				if doc == nil {
+					if err := json.Unmarshal(rawSource, &doc); err != nil {
+						break
+					}
+				}
+				if fragments := zinchighlight.Source(highlightQuery, field, doc, query.Highlight, options, mappings, analyzers); len(fragments) > 0 {
+					highlightData[field] = fragments
+				}
+			}
 		}
 
 		if query.Source.(*meta.Source) == nil || !query.Source.(*meta.Source).Enable || len(query.Source.(*meta.Source).Fields) == 0 {

@@ -106,7 +106,7 @@ func MultiSearch(indexNames []string, query *meta.ZincQuery) (*meta.SearchRespon
 		return nil, err
 	}
 
-	return searchV2(shardNum, int64(len(readers)), dmi, query, mappings)
+	return searchV2(shardNum, int64(len(readers)), dmi, query, mappings, analyzers)
 }
 
 // isMatchIndex("abc", "a")  false
