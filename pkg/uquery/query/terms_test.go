@@ -18,6 +18,7 @@ package query
 import (
 	"testing"
 
+	"github.com/blugelabs/bluge"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -57,4 +58,63 @@ func TestTermsQuery_IdCoercion(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, q)
 	})
+}
+
+func TestTermsQuery_Lookup(t *testing.T) {
+	docs := map[string]map[string]interface{}{
+		"links/2": {
+			"ids":    []interface{}{float64(10), float64(11)},
+			"nested": map[string]interface{}{"tags": []interface{}{map[string]interface{}{"name": "a"}, map[string]interface{}{"name": "b"}}},
+			"single": "x",
+		},
+	}
+	orig := TermsLookupFunc
+	TermsLookupFunc = func(index, id string) (map[string]interface{}, error) {
+		return docs[index+"/"+id], nil
+	}
+	t.Cleanup(func() { TermsLookupFunc = orig })
+
+	lookup := func(id, path string) map[string]interface{} {
+		return map[string]interface{}{"_id": map[string]interface{}{"index": "links", "id": id, "path": path}}
+	}
+
+	t.Run("array field builds a terms query", func(t *testing.T) {
+		q, err := TermsQuery(lookup("2", "ids"), nil)
+		assert.NoError(t, err)
+		assert.IsType(t, bluge.NewBooleanQuery(), q)
+	})
+
+	t.Run("missing document matches none", func(t *testing.T) {
+		q, err := TermsQuery(lookup("nope", "ids"), nil)
+		assert.NoError(t, err)
+		assert.IsType(t, bluge.NewMatchNoneQuery(), q)
+	})
+
+	t.Run("missing field matches none", func(t *testing.T) {
+		q, err := TermsQuery(lookup("2", "missing"), nil)
+		assert.NoError(t, err)
+		assert.IsType(t, bluge.NewMatchNoneQuery(), q)
+	})
+
+	t.Run("lookup without path is a parse error", func(t *testing.T) {
+		_, err := TermsQuery(map[string]interface{}{"_id": map[string]interface{}{"index": "links", "id": "2"}}, nil)
+		assert.Error(t, err)
+	})
+}
+
+func TestExtractPath(t *testing.T) {
+	source := map[string]interface{}{
+		"ids":    []interface{}{float64(10), []interface{}{float64(11)}},
+		"single": "x",
+		"nested": map[string]interface{}{"tags": []interface{}{map[string]interface{}{"name": "a"}, map[string]interface{}{"name": "b"}}},
+		"a.b":    "dotted",
+		"obj":    map[string]interface{}{"k": "v"},
+	}
+	assert.Equal(t, []interface{}{float64(10), float64(11)}, extractPath(source, "ids"))
+	assert.Equal(t, []interface{}{"x"}, extractPath(source, "single"))
+	assert.Equal(t, []interface{}{"a", "b"}, extractPath(source, "nested.tags.name"))
+	assert.Equal(t, []interface{}{"dotted"}, extractPath(source, "a.b"))
+	assert.Nil(t, extractPath(source, "obj"))
+	assert.Nil(t, extractPath(source, "single.x"))
+	assert.Nil(t, extractPath(source, "missing"))
 }
