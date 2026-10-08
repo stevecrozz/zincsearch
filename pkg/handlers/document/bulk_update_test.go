@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/zincsearch/zincsearch/pkg/core"
+	"github.com/zincsearch/zincsearch/pkg/zutils/json"
 	"github.com/zincsearch/zincsearch/test/utils"
 )
 
@@ -79,4 +80,39 @@ func TestBulkUpdateMergesPartialDoc(t *testing.T) {
 		assert.Contains(t, body, `"errors":true`)
 		assert.Contains(t, body, `"status":404`)
 	})
+}
+
+func TestBulkItemKeys(t *testing.T) {
+	indexName := "bulk-item-keys"
+	index, err := core.NewIndex(indexName, "disk", 1)
+	require.NoError(t, err)
+	require.NoError(t, core.StoreIndex(index))
+	t.Cleanup(func() { _ = core.DeleteIndex(indexName) })
+
+	c, w := utils.NewGinContext()
+	utils.SetGinRequestData(c, `{"index":{"_id":"1"}}
+{"a":1}
+{"create":{"_id":"2"}}
+{"a":2}
+{"update":{"_id":"1"}}
+{"doc":{"a":1}}
+{"delete":{"_id":"2"}}
+`)
+	utils.SetGinRequestParams(c, map[string]string{"target": indexName})
+	ESBulk(c)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	var resp struct {
+		Items []map[string]BulkResponseItem `json:"items"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	require.Len(t, resp.Items, 4)
+	keys := []string{}
+	for _, item := range resp.Items {
+		for k := range item {
+			keys = append(keys, k)
+		}
+	}
+	assert.Equal(t, []string{"index", "create", "update", "delete"}, keys)
+	assert.Equal(t, "noop", resp.Items[2]["update"].Result)
 }

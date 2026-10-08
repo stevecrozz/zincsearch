@@ -152,17 +152,13 @@ func BulkWorker(target string, body io.Reader) (*BulkResponse, error) {
 			indexName := suppliedIndexName.(string)
 			operation := suppliedOperation.(string)
 			switch operation {
-			case "index":
+			case "index", "create":
 				bulkRes.Items = append(bulkRes.Items, map[string]BulkResponseItem{
-					"index": NewBulkResponseItem(bulkRes.Count, indexName, docID, "created", nil),
-				})
-			case "create":
-				bulkRes.Items = append(bulkRes.Items, map[string]BulkResponseItem{
-					"index": NewBulkResponseItem(bulkRes.Count, indexName, docID, "created", nil),
+					operation: NewBulkResponseItem(bulkRes.Count, indexName, docID, "created", nil),
 				})
 			case "update":
 				bulkRes.Items = append(bulkRes.Items, map[string]BulkResponseItem{
-					"index": NewBulkResponseItem(bulkRes.Count, indexName, docID, "updated", nil),
+					operation: NewBulkResponseItem(bulkRes.Count, indexName, docID, "updated", nil),
 				})
 			default:
 			}
@@ -181,8 +177,8 @@ func BulkWorker(target string, body io.Reader) (*BulkResponse, error) {
 					if asUpsert, _ := doc["doc_as_upsert"].(bool); asUpsert {
 						upsert = partial
 					}
-					item := bulkRes.Items[len(bulkRes.Items)-1]["index"]
-					created, err := newIndex.MergeDocument(docID, partial, upsert)
+					item := bulkRes.Items[len(bulkRes.Items)-1]["update"]
+					result, err := newIndex.MergeDocument(docID, partial, upsert)
 					switch {
 					case err == zincerrors.ErrorIDNotFound:
 						bulkRes.Errors = true
@@ -193,10 +189,12 @@ func BulkWorker(target string, body io.Reader) (*BulkResponse, error) {
 						item.Status = http.StatusInternalServerError
 						item.Error = err.Error()
 						log.Error().Msgf("bulk.MergeDocument: index=%s id=%s err=%s", indexName, docID, err.Error())
-					case created:
-						item.Result, item.Status = "created", http.StatusCreated
+					case result == core.MergeResultCreated:
+						item.Result, item.Status = result, http.StatusCreated
+					default:
+						item.Result = result
 					}
-					bulkRes.Items[len(bulkRes.Items)-1]["index"] = item
+					bulkRes.Items[len(bulkRes.Items)-1]["update"] = item
 					continue
 				}
 			}

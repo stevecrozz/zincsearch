@@ -16,6 +16,7 @@
 package core
 
 import (
+	"reflect"
 	"strings"
 	"time"
 
@@ -58,15 +59,22 @@ func (index *Index) GetDocument(docID string) (*meta.Hit, error) {
 	return shard.FindDocumentByDocID(docID)
 }
 
+// Results of MergeDocument, as ES reports them.
+const (
+	MergeResultCreated = "created"
+	MergeResultUpdated = "updated"
+	MergeResultNoop    = "noop"
+)
+
 // MergeDocument applies an ES-style partial update: partial is merged into
 // the document's current source, with objects merged recursively and other
 // values replaced. If the document doesn't exist, upsert is inserted
-// instead, or errors.ErrorIDNotFound is returned when upsert is nil.
-// Returns whether the document was created.
-func (index *Index) MergeDocument(docID string, partial, upsert map[string]interface{}) (bool, error) {
+// instead, or errors.ErrorIDNotFound is returned when upsert is nil. As in
+// ES, an update that changes nothing is a noop and isn't written.
+func (index *Index) MergeDocument(docID string, partial, upsert map[string]interface{}) (string, error) {
 	shard := index.GetShardByDocID(docID)
 	if err := shard.OpenWAL(); err != nil {
-		return false, err
+		return "", err
 	}
 
 	shard.mergeLock.Lock()
@@ -74,38 +82,48 @@ func (index *Index) MergeDocument(docID string, partial, upsert map[string]inter
 
 	// earlier writes to this doc may still be in the WAL
 	if _, err := shard.DrainWAL(); err != nil {
-		return false, err
+		return "", err
 	}
 	hit, err := shard.FindDocumentByDocID(docID)
 	if err == errors.ErrorIDNotFound {
 		if upsert == nil {
-			return false, err
+			return "", err
 		}
-		return true, index.CreateDocument(docID, upsert, false)
+		return MergeResultCreated, index.CreateDocument(docID, upsert, false)
 	}
 	if err != nil {
-		return false, err
+		return "", err
 	}
 
 	current, _ := hit.Source.(map[string]interface{})
 	if current == nil {
 		current = make(map[string]interface{})
 	}
-	mergeSource(current, partial)
-	return false, index.CreateDocument(docID, current, true)
+	if !mergeSource(current, partial) {
+		return MergeResultNoop, nil
+	}
+	return MergeResultUpdated, index.CreateDocument(docID, current, true)
 }
 
-// mergeSource merges src into dst the way ES merges a partial update doc.
-func mergeSource(dst, src map[string]interface{}) {
+// mergeSource merges src into dst the way ES merges a partial update doc,
+// and reports whether dst changed.
+func mergeSource(dst, src map[string]interface{}) bool {
+	changed := false
 	for k, v := range src {
 		if vm, ok := v.(map[string]interface{}); ok {
 			if dm, ok := dst[k].(map[string]interface{}); ok {
-				mergeSource(dm, vm)
+				if mergeSource(dm, vm) {
+					changed = true
+				}
 				continue
 			}
 		}
-		dst[k] = v
+		if old, ok := dst[k]; !ok || !reflect.DeepEqual(old, v) {
+			dst[k] = v
+			changed = true
+		}
 	}
+	return changed
 }
 
 // UpdateDocument updates a document in the zinc index
