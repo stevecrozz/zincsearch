@@ -56,6 +56,8 @@ type IndexShard struct {
 	lock   sync.RWMutex
 	// walLock serializes WAL consumption with itself and with closing the WAL
 	walLock sync.Mutex
+	// mergeLock serializes read-merge-write partial updates
+	mergeLock sync.Mutex
 }
 
 // IndexSecondShard second layer shard by auto increate shards for index.

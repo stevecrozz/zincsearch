@@ -58,6 +58,56 @@ func (index *Index) GetDocument(docID string) (*meta.Hit, error) {
 	return shard.FindDocumentByDocID(docID)
 }
 
+// MergeDocument applies an ES-style partial update: partial is merged into
+// the document's current source, with objects merged recursively and other
+// values replaced. If the document doesn't exist, upsert is inserted
+// instead, or errors.ErrorIDNotFound is returned when upsert is nil.
+// Returns whether the document was created.
+func (index *Index) MergeDocument(docID string, partial, upsert map[string]interface{}) (bool, error) {
+	shard := index.GetShardByDocID(docID)
+	if err := shard.OpenWAL(); err != nil {
+		return false, err
+	}
+
+	shard.mergeLock.Lock()
+	defer shard.mergeLock.Unlock()
+
+	// earlier writes to this doc may still be in the WAL
+	if _, err := shard.DrainWAL(); err != nil {
+		return false, err
+	}
+	hit, err := shard.FindDocumentByDocID(docID)
+	if err == errors.ErrorIDNotFound {
+		if upsert == nil {
+			return false, err
+		}
+		return true, index.CreateDocument(docID, upsert, false)
+	}
+	if err != nil {
+		return false, err
+	}
+
+	current, _ := hit.Source.(map[string]interface{})
+	if current == nil {
+		current = make(map[string]interface{})
+	}
+	mergeSource(current, partial)
+	return false, index.CreateDocument(docID, current, true)
+}
+
+// mergeSource merges src into dst the way ES merges a partial update doc.
+func mergeSource(dst, src map[string]interface{}) {
+	for k, v := range src {
+		if vm, ok := v.(map[string]interface{}); ok {
+			if dm, ok := dst[k].(map[string]interface{}); ok {
+				mergeSource(dm, vm)
+				continue
+			}
+		}
+		dst[k] = v
+	}
+}
+
 // UpdateDocument updates a document in the zinc index
 func (index *Index) UpdateDocument(docID string, doc map[string]interface{}, insert bool) error {
 	// metrics

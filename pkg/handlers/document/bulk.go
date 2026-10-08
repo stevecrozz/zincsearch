@@ -176,8 +176,28 @@ func BulkWorker(target string, body io.Reader) (*BulkResponse, error) {
 			}
 
 			if operation == "update" {
-				if innerDoc, ok := doc["doc"].(map[string]interface{}); ok {
-					doc = innerDoc
+				if partial, ok := doc["doc"].(map[string]interface{}); ok {
+					upsert, _ := doc["upsert"].(map[string]interface{})
+					if asUpsert, _ := doc["doc_as_upsert"].(bool); asUpsert {
+						upsert = partial
+					}
+					item := bulkRes.Items[len(bulkRes.Items)-1]["index"]
+					created, err := newIndex.MergeDocument(docID, partial, upsert)
+					switch {
+					case err == zincerrors.ErrorIDNotFound:
+						bulkRes.Errors = true
+						item.Result, item.Status = "", http.StatusNotFound
+						item.Error = fmt.Sprintf("[%s]: document missing", docID)
+					case err != nil:
+						bulkRes.Errors = true
+						item.Status = http.StatusInternalServerError
+						item.Error = err.Error()
+						log.Error().Msgf("bulk.MergeDocument: index=%s id=%s err=%s", indexName, docID, err.Error())
+					case created:
+						item.Result, item.Status = "created", http.StatusCreated
+					}
+					bulkRes.Items[len(bulkRes.Items)-1]["index"] = item
+					continue
 				}
 			}
 
